@@ -1,13 +1,20 @@
-package moe.fuqiuluo.mamu.repository
+package moe.fuqiuluo.mamu.data.local
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import moe.fuqiuluo.mamu.data.DriverInfo
-import moe.fuqiuluo.mamu.data.DriverStatus
+import moe.fuqiuluo.mamu.data.model.DriverInfo
+import moe.fuqiuluo.mamu.data.model.DriverStatus
 import moe.fuqiuluo.mamu.driver.WuwaDriver
 
-class DriverRepository {
+/**
+ * 驱动信息数据源
+ * 负责查询驱动相关信息
+ */
+class DriverDataSource {
 
+    /**
+     * 获取驱动信息
+     */
     suspend fun getDriverInfo(): DriverInfo = withContext(Dispatchers.IO) {
         try {
             val loaded = WuwaDriver.loaded

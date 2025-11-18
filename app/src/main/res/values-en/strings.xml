@@ -159,4 +159,84 @@
     <string name="hint_value_min">Min value</string>
     <string name="hint_value_max">Max value</string>
 
+    <!-- Modify Dialog -->
+    <string name="modify_dialog_title">Modify Value</string>
+    <string name="modify_dialog_subtitle">Enter new value</string>
+    <string name="button_goto">Go To</string>
+    <string name="button_no">No</string>
+    <string name="button_yes">Yes</string>
+
+    <!-- Permission Setup Screen -->
+    <string name="permission_setup_initializing">Initializing...</string>
+    <string name="permission_setup_checking_root">Checking Root Permission...</string>
+    <string name="permission_setup_root_check_hint">Please allow root access in the authorization window</string>
+    <string name="permission_setup_no_root_title">Root Permission Not Granted</string>
+    <string name="permission_setup_no_root_message">This app requires root permission to function properly.\nPlease ensure your device is rooted and grant access in the authorization manager.</string>
+    <string name="permission_setup_root_granted_title">Root Permission Granted</string>
+    <string name="permission_setup_root_confirm_message">Allow automatic granting of required system permissions using root access?</string>
+    <string name="permission_setup_permissions_list">Includes: Query all packages, overlay window, etc.</string>
+    <string name="permission_setup_granting_title">Granting Permissions</string>
+    <string name="permission_setup_granting_progress">%1$d / %2$d</string>
+    <string name="permission_setup_current_permission">Current Permission:</string>
+    <string name="permission_setup_completed_all">Permission Granting Completed</string>
+    <string name="permission_setup_completed_partial">Some Permissions Granted Successfully</string>
+    <string name="permission_setup_granted_count">Granted %1$d / %2$d permissions</string>
+    <string name="permission_setup_launching">Launching main screen...</string>
+    <string name="permission_setup_error_title">Error Occurred</string>
+    <string name="button_retry">Retry</string>
+    <string name="button_skip">Skip</string>
+    <string name="button_allow">Allow</string>
+
+    <!-- Home Screen -->
+    <string name="home_title">Mamu</string>
+    <string name="home_refresh">Refresh</string>
+    <string name="home_driver_status_title">Driver Status</string>
+    <string name="home_driver_loaded">Loaded</string>
+    <string name="home_driver_not_loaded">Not Loaded</string>
+    <string name="home_driver_error">Error</string>
+    <string name="home_driver_unknown">Unknown</string>
+    <string name="home_driver_bound_process">Bound Process</string>
+    <string name="home_driver_bound_process_value">PID: %d</string>
+    <string name="home_driver_not_bound">Not Bound</string>
+    <string name="home_driver_error_message">Error Message</string>
+    <string name="home_root_status_title">Root Permission</string>
+    <string name="home_root_granted">Granted</string>
+    <string name="home_root_not_granted">Not Granted</string>
+    <string name="home_selinux_status_title">SELinux Status</string>
+    <string name="home_selinux_enforcing">Enforcing</string>
+    <string name="home_selinux_permissive">Permissive</string>
+    <string name="home_selinux_disabled">Disabled</string>
+    <string name="home_selinux_unknown">Unknown</string>
+    <string name="home_selinux_mode">Mode</string>
+    <string name="home_system_info_title">System Info</string>
+    <string name="home_device_model">Device Model</string>
+    <string name="home_device_manufacturer">Manufacturer</string>
+    <string name="home_device_brand">Brand</string>
+    <string name="home_android_version">Android Version</string>
+    <string name="home_sdk_version">SDK Version</string>
+    <string name="home_kernel_version">Kernel Version</string>
+    <string name="home_cpu_abi">CPU ABI</string>
+    <string name="home_supported_abis">Supported ABIs</string>
+    <string name="home_error_title">Error</string>
+
+    <!-- Theme Names -->
+    <string name="theme_cyan">Cyan</string>
+    <string name="theme_cyan_desc">Tech Style</string>
+    <string name="theme_blue">Blue</string>
+    <string name="theme_blue_desc">Classic Professional</string>
+    <string name="theme_green">Green</string>
+    <string name="theme_green_desc">Natural Fresh</string>
+    <string name="theme_orange">Orange</string>
+    <string name="theme_orange_desc">Vibrant Energetic</string>
+    <string name="theme_red">Red</string>
+    <string name="theme_red_desc">Dynamic Passionate</string>
+    <string name="theme_purple">Purple</string>
+    <string name="theme_purple_desc">Elegant Mysterious</string>
+    <string name="theme_pink">Pink</string>
+    <string name="theme_pink_desc">Soft Warm</string>
+    <string name="theme_amber">Amber</string>
+    <string name="theme_amber_desc">Warm Retro</string>
+    <string name="theme_indigo">Indigo</string>
+    <string name="theme_indigo_desc">Deep Calm</string>
+
 </resources>

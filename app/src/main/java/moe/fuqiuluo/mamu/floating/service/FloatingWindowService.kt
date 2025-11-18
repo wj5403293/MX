@@ -25,9 +25,9 @@ import moe.fuqiuluo.mamu.databinding.FloatingFullscreenLayoutBinding
 import moe.fuqiuluo.mamu.databinding.FloatingWindowLayoutBinding
 import moe.fuqiuluo.mamu.driver.ProcessDeathMonitor
 import moe.fuqiuluo.mamu.driver.WuwaDriver
-import moe.fuqiuluo.mamu.ext.selectedMemoryRanges
-import moe.fuqiuluo.mamu.ext.tabSwitchAnimation
-import moe.fuqiuluo.mamu.ext.topMostLayer
+import moe.fuqiuluo.mamu.floating.ext.selectedMemoryRanges
+import moe.fuqiuluo.mamu.floating.ext.tabSwitchAnimation
+import moe.fuqiuluo.mamu.floating.ext.topMostLayer
 import moe.fuqiuluo.mamu.floating.controller.*
 import moe.fuqiuluo.mamu.floating.ext.applyOpacity
 import moe.fuqiuluo.mamu.floating.listener.DraggableFloatingIconTouchListener

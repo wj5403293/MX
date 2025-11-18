@@ -5,7 +5,6 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import com.tencent.mmkv.MMKV
 import moe.fuqiuluo.mamu.databinding.FloatingFullscreenLayoutBinding
-import moe.fuqiuluo.mamu.ext.floatingOpacity
 
 /**
  * 应用浮动窗口透明度设置

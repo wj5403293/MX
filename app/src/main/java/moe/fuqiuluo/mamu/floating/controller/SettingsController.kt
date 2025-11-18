@@ -11,14 +11,33 @@ import moe.fuqiuluo.mamu.R
 import moe.fuqiuluo.mamu.databinding.FloatingSettingsLayoutBinding
 import moe.fuqiuluo.mamu.driver.ProcessDeathMonitor
 import moe.fuqiuluo.mamu.driver.WuwaDriver
-import moe.fuqiuluo.mamu.ext.*
 import moe.fuqiuluo.mamu.floating.adapter.ProcessListAdapter
 import moe.fuqiuluo.mamu.floating.dialog.MemoryRangeDialog
 import moe.fuqiuluo.mamu.floating.dialog.customDialog
+import moe.fuqiuluo.mamu.floating.ext.autoPause
+import moe.fuqiuluo.mamu.floating.ext.chunkSize
 import moe.fuqiuluo.mamu.floating.ext.divideToSimpleMemoryRange
+import moe.fuqiuluo.mamu.floating.ext.filterLinuxProcess
+import moe.fuqiuluo.mamu.floating.ext.filterSystemProcess
+import moe.fuqiuluo.mamu.floating.ext.floatingOpacity
+import moe.fuqiuluo.mamu.floating.ext.freezeInterval
+import moe.fuqiuluo.mamu.floating.ext.hideMode1
+import moe.fuqiuluo.mamu.floating.ext.hideMode2
+import moe.fuqiuluo.mamu.floating.ext.hideMode3
+import moe.fuqiuluo.mamu.floating.ext.hideMode4
+import moe.fuqiuluo.mamu.floating.ext.keyboardType
+import moe.fuqiuluo.mamu.floating.ext.languageSelection
+import moe.fuqiuluo.mamu.floating.ext.memoryAccessMode
+import moe.fuqiuluo.mamu.floating.ext.memoryBufferSize
+import moe.fuqiuluo.mamu.floating.ext.saveListUpdateInterval
+import moe.fuqiuluo.mamu.floating.ext.selectedMemoryRanges
+import moe.fuqiuluo.mamu.floating.ext.skipMemoryOption
+import moe.fuqiuluo.mamu.floating.ext.tabSwitchAnimation
+import moe.fuqiuluo.mamu.floating.ext.topMostLayer
 import moe.fuqiuluo.mamu.floating.model.DisplayProcessInfo
 import moe.fuqiuluo.mamu.floating.model.MemoryRange
 import moe.fuqiuluo.mamu.utils.ApplicationUtils
+import moe.fuqiuluo.mamu.utils.RootConfigManager
 import moe.fuqiuluo.mamu.utils.RootShellExecutor
 import moe.fuqiuluo.mamu.utils.onError
 import moe.fuqiuluo.mamu.utils.onSuccess
@@ -69,7 +88,7 @@ class SettingsController(
 
         binding.btnTerminateProc.setOnClickListener {
             if (WuwaDriver.isProcessBound) {
-                RootShellExecutor.exec("kill -9 ${WuwaDriver.currentBindPid}", 1000).onSuccess {
+                RootShellExecutor.exec(suCmd = RootConfigManager.getCustomRootCommand(), "kill -9 ${WuwaDriver.currentBindPid}", 1000).onSuccess {
                     notification.showSuccess(context.getString(R.string.success_process_terminated))
                     updateCurrentProcessDisplay(null)
                 }.onError {

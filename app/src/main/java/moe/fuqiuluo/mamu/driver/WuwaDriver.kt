@@ -34,7 +34,10 @@ object WuwaDriver {
 
     fun queryMemRegions(pid: Int = currentBindPid) = nativeQueryMemRegions(pid)
 
+    fun setDriverFd(fd: Int): Boolean = nativeSetDriverFd(fd)
+
     private external fun nativeIsLoaded(): Boolean
+    private external fun nativeSetDriverFd(fd: Int): Boolean
     private external fun nativeSetMemoryAccessMode(mode: Int)
     private external fun nativeIsProcessAlive(pid: Int): Boolean
     private external fun nativeGetProcessList(): IntArray

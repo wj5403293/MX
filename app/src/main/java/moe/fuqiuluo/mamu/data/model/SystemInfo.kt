@@ -1,4 +1,4 @@
-package moe.fuqiuluo.mamu.data
+package moe.fuqiuluo.mamu.data.model
 
 import android.os.Build
 

@@ -146,7 +146,7 @@ pub fn jni_init_core(mut env: JNIEnv, obj: JObject) -> jboolean {
     .or_throw(&mut env)
 }
 
-#[jni_method(90, "moe/fuqiuluo/mamu/flutter/FloatingBridge", "setDriverFd", "(I)Z")]
+#[jni_method(90, "moe/fuqiuluo/mamu/driver/WuwaDriver", "nativeSetDriverFd", "(I)Z")]
 pub fn jni_set_driver_fd(mut env: JNIEnv, _obj: JObject, fd: i32) -> jboolean {
     (|| -> JniResult<jboolean> {
         if DRIVER_MANAGER.is_poisoned() {

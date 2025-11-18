@@ -17,8 +17,8 @@ import moe.fuqiuluo.mamu.databinding.DialogSearchInputBinding
 import moe.fuqiuluo.mamu.driver.SearchEngine
 import moe.fuqiuluo.mamu.driver.SearchProgressCallback
 import moe.fuqiuluo.mamu.driver.WuwaDriver
-import moe.fuqiuluo.mamu.ext.memoryAccessMode
-import moe.fuqiuluo.mamu.ext.selectedMemoryRanges
+import moe.fuqiuluo.mamu.floating.ext.memoryAccessMode
+import moe.fuqiuluo.mamu.floating.ext.selectedMemoryRanges
 import moe.fuqiuluo.mamu.floating.ext.divideToSimpleMemoryRange
 import moe.fuqiuluo.mamu.floating.model.DisplayMemRegionEntry
 import moe.fuqiuluo.mamu.floating.model.DisplayValueType

@@ -9,11 +9,10 @@ import com.tencent.mmkv.MMKV
 import kotlinx.coroutines.*
 import moe.fuqiuluo.mamu.R
 import moe.fuqiuluo.mamu.databinding.FloatingSearchLayoutBinding
-import moe.fuqiuluo.mamu.driver.ExactSearchResultItem
 import moe.fuqiuluo.mamu.driver.SearchEngine
 import moe.fuqiuluo.mamu.driver.SearchResultItem
 import moe.fuqiuluo.mamu.driver.WuwaDriver
-import moe.fuqiuluo.mamu.ext.searchPageSize
+import moe.fuqiuluo.mamu.floating.ext.searchPageSize
 import moe.fuqiuluo.mamu.floating.adapter.SearchResultAdapter
 import moe.fuqiuluo.mamu.floating.dialog.FilterDialog
 import moe.fuqiuluo.mamu.floating.dialog.FilterDialogState

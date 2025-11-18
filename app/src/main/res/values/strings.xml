@@ -167,4 +167,79 @@
     <string name="button_no">否</string>
     <string name="button_yes">是</string>
 
+    <!-- 权限设置界面 -->
+    <string name="permission_setup_initializing">初始化中...</string>
+    <string name="permission_setup_checking_root">检查Root权限...</string>
+    <string name="permission_setup_root_check_hint">请在弹出的授权窗口中允许Root访问</string>
+    <string name="permission_setup_no_root_title">未获取Root权限</string>
+    <string name="permission_setup_no_root_message">此应用需要Root权限才能正常运行。\n请确保您的设备已Root，并在授权管理器中允许访问。</string>
+    <string name="permission_setup_root_granted_title">Root权限已获取</string>
+    <string name="permission_setup_root_confirm_message">是否允许使用Root权限自动授予应用所需的系统权限？</string>
+    <string name="permission_setup_permissions_list">包括：查询所有应用包名、悬浮窗权限等</string>
+    <string name="permission_setup_granting_title">正在授予权限</string>
+    <string name="permission_setup_granting_progress">%1$d / %2$d</string>
+    <string name="permission_setup_current_permission">当前权限：</string>
+    <string name="permission_setup_completed_all">权限授予完成</string>
+    <string name="permission_setup_completed_partial">部分权限授予成功</string>
+    <string name="permission_setup_granted_count">已授予 %1$d / %2$d 项权限</string>
+    <string name="permission_setup_launching">正在启动主界面...</string>
+    <string name="permission_setup_error_title">发生错误</string>
+    <string name="button_retry">重试</string>
+    <string name="button_skip">跳过</string>
+    <string name="button_allow">允许</string>
+
+    <!-- 主界面 -->
+    <string name="home_title">Mamu</string>
+    <string name="home_refresh">刷新</string>
+    <string name="home_driver_status_title">驱动状态</string>
+    <string name="home_driver_loaded">已加载</string>
+    <string name="home_driver_not_loaded">未加载</string>
+    <string name="home_driver_error">错误</string>
+    <string name="home_driver_unknown">未知</string>
+    <string name="home_driver_bound_process">绑定进程</string>
+    <string name="home_driver_bound_process_value">PID: %d</string>
+    <string name="home_driver_not_bound">未绑定</string>
+    <string name="home_driver_error_message">错误信息</string>
+    <string name="home_root_status_title">Root权限</string>
+    <string name="home_root_granted">已获取</string>
+    <string name="home_root_not_granted">未获取</string>
+    <string name="home_selinux_status_title">SELinux状态</string>
+    <string name="home_selinux_enforcing">强制模式</string>
+    <string name="home_selinux_permissive">宽容模式</string>
+    <string name="home_selinux_disabled">已禁用</string>
+    <string name="home_selinux_unknown">未知</string>
+    <string name="home_selinux_mode">模式</string>
+    <string name="home_system_info_title">系统信息</string>
+    <string name="home_device_model">设备型号</string>
+    <string name="home_device_manufacturer">设备制造商</string>
+    <string name="home_device_brand">设备品牌</string>
+    <string name="home_android_version">Android版本</string>
+    <string name="home_sdk_version">SDK版本</string>
+    <string name="home_kernel_version">内核版本</string>
+    <string name="home_cpu_abi">CPU架构</string>
+    <string name="home_supported_abis">支持的ABI</string>
+    <string name="home_error_title">错误</string>
+
+    <!-- 主题名称 -->
+    <string name="theme_tech">霓虹科技</string>
+    <string name="theme_tech_desc">炫酷霓虹科技风</string>
+    <string name="theme_cyan">青色</string>
+    <string name="theme_cyan_desc">科技感</string>
+    <string name="theme_blue">蓝色</string>
+    <string name="theme_blue_desc">经典专业</string>
+    <string name="theme_green">绿色</string>
+    <string name="theme_green_desc">自然清新</string>
+    <string name="theme_orange">橙色</string>
+    <string name="theme_orange_desc">活力热情</string>
+    <string name="theme_red">红色</string>
+    <string name="theme_red_desc">动感激情</string>
+    <string name="theme_purple">紫色</string>
+    <string name="theme_purple_desc">优雅神秘</string>
+    <string name="theme_pink">粉色</string>
+    <string name="theme_pink_desc">柔和温暖</string>
+    <string name="theme_amber">琥珀</string>
+    <string name="theme_amber_desc">温暖复古</string>
+    <string name="theme_indigo">靛蓝</string>
+    <string name="theme_indigo_desc">深邃沉稳</string>
+
 </resources>

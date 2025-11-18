@@ -6,11 +6,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import moe.fuqiuluo.mamu.data.DriverInfo
-import moe.fuqiuluo.mamu.data.SeLinuxStatus
-import moe.fuqiuluo.mamu.data.SystemInfo
-import moe.fuqiuluo.mamu.repository.DriverRepository
-import moe.fuqiuluo.mamu.repository.SystemRepository
+import moe.fuqiuluo.mamu.data.model.DriverInfo
+import moe.fuqiuluo.mamu.data.model.SeLinuxStatus
+import moe.fuqiuluo.mamu.data.model.SystemInfo
+import moe.fuqiuluo.mamu.data.local.DriverDataSource
+import moe.fuqiuluo.mamu.data.local.SystemDataSource
 
 data class MainUiState(
     val isLoading: Boolean = true,
@@ -22,8 +22,8 @@ data class MainUiState(
 )
 
 class MainViewModel(
-    private val systemRepository: SystemRepository = SystemRepository(),
-    private val driverRepository: DriverRepository = DriverRepository()
+    private val systemDataSource: SystemDataSource = SystemDataSource(),
+    private val driverDataSource: DriverDataSource = DriverDataSource()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -38,10 +38,10 @@ class MainViewModel(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
             try {
-                val systemInfo = systemRepository.getSystemInfo()
-                val hasRoot = systemRepository.hasRootAccess()
-                val seLinuxStatus = systemRepository.getSeLinuxStatus()
-                val driverInfo = driverRepository.getDriverInfo()
+                val systemInfo = systemDataSource.getSystemInfo()
+                val hasRoot = systemDataSource.hasRootAccess()
+                val seLinuxStatus = systemDataSource.getSeLinuxStatus()
+                val driverInfo = driverDataSource.getDriverInfo()
 
                 _uiState.value = MainUiState(
                     isLoading = false,

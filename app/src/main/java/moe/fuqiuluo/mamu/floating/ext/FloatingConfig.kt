@@ -1,4 +1,4 @@
-package moe.fuqiuluo.mamu.ext
+package moe.fuqiuluo.mamu.floating.ext
 
 import com.tencent.mmkv.MMKV
 import moe.fuqiuluo.mamu.driver.WuwaDriver

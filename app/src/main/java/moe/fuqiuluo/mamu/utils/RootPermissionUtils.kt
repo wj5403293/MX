@@ -12,7 +12,7 @@ object RootPermissionUtils {
      * @return 是否授权成功
      */
     fun grantPermission(packageName: String, permission: String): Boolean {
-        return when (val result = RootShellExecutor.exec("pm grant $packageName $permission")) {
+        return when (val result = RootShellExecutor.exec(suCmd = RootConfigManager.getCustomRootCommand(), "pm grant $packageName $permission")) {
             is ShellResult.Success -> {
                 Log.d(TAG, "Successfully granted $permission to $packageName")
                 true
@@ -78,7 +78,7 @@ object RootPermissionUtils {
      * @return 是否撤销成功
      */
     fun revokePermission(packageName: String, permission: String): Boolean {
-        return when (val result = RootShellExecutor.exec("pm revoke $packageName $permission")) {
+        return when (val result = RootShellExecutor.exec(suCmd = RootConfigManager.getCustomRootCommand(), "pm revoke $packageName $permission")) {
             is ShellResult.Success -> {
                 Log.d(TAG, "Successfully revoked $permission from $packageName")
                 true
@@ -99,11 +99,17 @@ object RootPermissionUtils {
      * @return 是否有 root 权限
      */
     fun checkRootAccess(): Boolean {
-        val result = RootShellExecutor.exec("echo test")
-        val hasRoot = result is ShellResult.Success
+        runCatching {
+            val result = RootShellExecutor.exec(suCmd = RootConfigManager.getCustomRootCommand(), "echo test")
+            val hasRoot = result is ShellResult.Success
 
-        Log.d(TAG, "Root access: $hasRoot")
-        return hasRoot
+            Log.d(TAG, "Root access check': $hasRoot")
+            return hasRoot
+        }.onFailure {
+            Log.e(TAG, "Error checking root access", it)
+            return false
+        }
+        return false
     }
 
     /**
@@ -114,7 +120,7 @@ object RootPermissionUtils {
      * @return 是否设置成功
      */
     fun setAppOp(packageName: String, op: String, mode: String = "allow"): Boolean {
-        return when (val result = RootShellExecutor.exec("appops set $packageName $op $mode")) {
+        return when (val result = RootShellExecutor.exec(suCmd = RootConfigManager.getCustomRootCommand(), "appops set $packageName $op $mode")) {
             is ShellResult.Success -> {
                 Log.d(TAG, "Successfully set appop $op to $mode for $packageName")
                 true

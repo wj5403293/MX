@@ -1,5 +1,4 @@
 package moe.fuqiuluo.mamu.utils
-
 import android.os.Build
 import android.util.Log
 import java.io.BufferedReader
@@ -21,21 +20,28 @@ sealed class ShellResult {
  */
 data class ShellConfig(
     val timeoutMs: Long = 5000L,
-    val mergeErrorStream: Boolean = true
+    val mergeErrorStream: Boolean = true,
+    val suCmd: String,
 )
 
 /**
  * Root Shell 接口
  */
 interface RootShell : AutoCloseable {
-    fun execute(command: String, config: ShellConfig = ShellConfig()): ShellResult
-    fun executeAsync(
+    fun execute(
+        suCmd: String,
         command: String,
-        config: ShellConfig = ShellConfig(),
+        config: ShellConfig = ShellConfig(suCmd = suCmd)
+    ): ShellResult
+
+    fun executeAsync(
+        suCmd: String,
+        command: String,
+        config: ShellConfig = ShellConfig(suCmd = suCmd),
         callback: (ShellResult) -> Unit
     )
 
-    fun executeNoWait(command: String)
+    fun executeNoWait(suCmd: String, command: String)
 }
 
 /**
@@ -44,9 +50,9 @@ interface RootShell : AutoCloseable {
 internal object OneshotRootShell : RootShell {
     private const val TAG = "OneshotRootShell"
 
-    override fun execute(command: String, config: ShellConfig): ShellResult {
+    override fun execute(suCmd: String, command: String, config: ShellConfig): ShellResult {
         return try {
-            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
+            val process = Runtime.getRuntime().exec(arrayOf(suCmd, "-c", command))
 
             val outputBuilder = StringBuilder()
             val outputReader = Thread {
@@ -118,19 +124,20 @@ internal object OneshotRootShell : RootShell {
     }
 
     override fun executeAsync(
+        suCmd: String,
         command: String,
         config: ShellConfig,
         callback: (ShellResult) -> Unit
     ) {
         Thread {
-            callback(execute(command, config))
+            callback(execute(suCmd, command, config))
         }.start()
     }
 
-    override fun executeNoWait(command: String) {
+    override fun executeNoWait(suCmd: String, command: String) {
         Thread {
             try {
-                Runtime.getRuntime().exec(arrayOf("su", "-c", command))
+                Runtime.getRuntime().exec(arrayOf(suCmd, "-c", command))
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to execute command (no wait): $command", e)
             }
@@ -151,7 +158,13 @@ class PersistentRootShell internal constructor(
     private val TAG = "PersistentRootShell"
 
     private val process: Process by lazy {
-        Runtime.getRuntime().exec("su")
+        if (defaultConfig.mergeErrorStream) {
+            ProcessBuilder(defaultConfig.suCmd)
+                .redirectErrorStream(true)
+                .start()
+        } else {
+            Runtime.getRuntime().exec(defaultConfig.suCmd)
+        }
     }
 
     private val writer: BufferedWriter by lazy {
@@ -159,28 +172,25 @@ class PersistentRootShell internal constructor(
     }
 
     private val reader: BufferedReader by lazy {
-        if (defaultConfig.mergeErrorStream) {
-            ProcessBuilder("su")
-                .redirectErrorStream(true)
-                .start()
-                .inputStream
-                .bufferedReader()
-        } else {
-            process.inputStream.bufferedReader()
-        }
+        process.inputStream.bufferedReader()
     }
 
     private val marker = "<<<MAMU_CMD_END>>>"
     private var closed = false
 
     @Synchronized
-    override fun execute(command: String, config: ShellConfig): ShellResult {
+    override fun execute(suCmd: String, command: String, config: ShellConfig): ShellResult {
         if (closed) {
             return ShellResult.Error("Shell is closed", -1)
         }
 
         return try {
-            writer.write("$command; echo $marker $?\n")
+            // 修复：用引号包围 marker，防止被解析为 here-string
+            val cmd = "$command; echo '$marker' \$?\n".also {
+                Log.d(TAG, "Executing command: $it")
+            }
+
+            writer.write(cmd)
             writer.flush()
 
             val startTime = System.currentTimeMillis()
@@ -205,7 +215,6 @@ class PersistentRootShell internal constructor(
             }
 
             val result = output.toString().trim()
-
             if (exitCode == 0) {
                 ShellResult.Success(result, exitCode)
             } else {
@@ -221,23 +230,25 @@ class PersistentRootShell internal constructor(
     }
 
     override fun executeAsync(
+        suCmd: String,
         command: String,
         config: ShellConfig,
         callback: (ShellResult) -> Unit
     ) {
         Thread {
-            callback(execute(command, config))
+            callback(execute(suCmd, command, config))
         }.start()
     }
 
     @Synchronized
-    override fun executeNoWait(command: String) {
+    override fun executeNoWait(suCmd: String, command: String) {
         if (closed) {
             Log.w(TAG, "Shell is closed, cannot execute: $command")
             return
         }
 
         try {
+            // 修复：不需要再次使用 suCmd，已经在 root shell 中了
             writer.write("$command\n")
             writer.flush()
         } catch (e: Exception) {
@@ -278,24 +289,30 @@ object RootShellExecutor {
      * 一次性执行命令
      */
     fun exec(
+        suCmd: String,
         command: String,
         timeoutMs: Long = 5000L
-    ): ShellResult = OneshotRootShell.execute(command, ShellConfig(timeoutMs))
+    ): ShellResult =
+        OneshotRootShell.execute(suCmd, command, ShellConfig(suCmd = suCmd, timeoutMs = timeoutMs))
 
     /**
      * 批量一次性执行命令
      */
     fun execBatch(
+        suCmd: String,
         commands: List<String>,
         timeoutMs: Long = 5000L
     ): List<ShellResult> {
-        return commands.map { exec(it, timeoutMs) }
+        return commands.map { exec(suCmd, it, timeoutMs) }
     }
 
     /**
      * 创建持久化 Shell
      */
-    fun persistent(config: ShellConfig = ShellConfig()): PersistentRootShell {
+    fun persistent(
+        suCmd: String,
+        config: ShellConfig = ShellConfig(suCmd = suCmd)
+    ): PersistentRootShell {
         return PersistentRootShell(config)
     }
 
@@ -303,23 +320,24 @@ object RootShellExecutor {
      * DSL 风格：使用持久化 Shell 执行多条命令
      */
     inline fun <T> withPersistentShell(
-        config: ShellConfig = ShellConfig(),
+        suCmd: String,
+        config: ShellConfig = ShellConfig(suCmd = suCmd),
         block: PersistentRootShell.() -> T
-    ): T = persistent(config).use(block)
+    ): T = persistent(suCmd = suCmd, config = config).use(block)
 
     /**
      * Fire and forget - 不等待结果
      */
-    fun execNoWait(command: String) {
-        OneshotRootShell.executeNoWait(command)
+    fun execNoWait(suCmd: String, command: String) {
+        OneshotRootShell.executeNoWait(suCmd, command)
     }
 }
 
 /**
  * String 扩展：直接作为 root 命令执行
  */
-fun String.asRootCommand(timeoutMs: Long = 5000L): ShellResult =
-    RootShellExecutor.exec(this, timeoutMs)
+fun String.asRootCommand(suCmd: String, timeoutMs: Long = 5000L): ShellResult =
+    RootShellExecutor.exec(suCmd, this, timeoutMs)
 
 /**
  * ShellResult 扩展：成功时执行回调

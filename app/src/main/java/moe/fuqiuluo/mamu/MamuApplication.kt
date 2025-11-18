@@ -4,7 +4,10 @@ package moe.fuqiuluo.mamu
 import android.app.Application
 import android.util.Log
 import com.tencent.mmkv.MMKV
+import moe.fuqiuluo.mamu.utils.DeviceUtils
+import java.io.File
 import kotlin.system.exitProcess
+
 
 private const val TAG = "MamuApplication"
 
@@ -30,7 +33,23 @@ class MamuApplication : Application() {
             exitProcess(1)
         }
 
+        Thread.setDefaultUncaughtExceptionHandler { thread: Thread, throwable: Throwable ->
+            if (throwable.message != null &&
+                throwable.message!!.contains("agent.so")
+            ) {
+                clearCodeCache()
+                Log.w(TAG, "FUck Xiaomi!!!!!!!!!!!!!")
+            } else {
+                Log.e(TAG, "Uncaught exception in thread ${thread.name}", throwable)
+            }
+        }
+
         Log.d(TAG, "MamuApplication initialized")
+    }
+
+    private fun clearCodeCache() {
+        val codeCacheDir = File(applicationInfo.dataDir, "code_cache")
+        codeCacheDir.deleteRecursively()
     }
 
     override fun onTerminate() {

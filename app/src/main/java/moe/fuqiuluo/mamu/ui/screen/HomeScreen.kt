@@ -15,8 +15,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import moe.fuqiuluo.mamu.data.DriverStatus
-import moe.fuqiuluo.mamu.data.SeLinuxMode
+import moe.fuqiuluo.mamu.data.model.DriverStatus
+import moe.fuqiuluo.mamu.data.model.SeLinuxMode
+import moe.fuqiuluo.mamu.data.model.SystemInfo
 import moe.fuqiuluo.mamu.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -209,7 +210,7 @@ fun SeLinuxStatusCard(mode: SeLinuxMode?, modeString: String?) {
 
 @Composable
 fun SystemInfoCard(
-    systemInfo: moe.fuqiuluo.mamu.data.SystemInfo
+    systemInfo: SystemInfo
 ) {
     StatusCard(
         title = "系统信息",
