@@ -4,6 +4,7 @@ pub mod driver;
 pub mod wuwa;
 pub mod ext;
 pub mod search;
+pub mod practice;
 
 use android_logger::Config;
 use jni::sys::{jint, JNI_VERSION_1_6};

@@ -22,6 +22,7 @@ rayon = "1.11.0"
 jni-macro = { path = "jni-macro/jni-facade" }
 bplustree = { path = "bplustree" }
 memchr = "2.7.6"
+bytemuck = "1.24.0"
 
 [dev-dependencies]
 rand = "0.8"

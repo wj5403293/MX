@@ -25,16 +25,40 @@ import moe.fuqiuluo.mamu.data.model.DriverStatus
 import moe.fuqiuluo.mamu.data.model.SeLinuxMode
 import moe.fuqiuluo.mamu.data.model.SystemInfo
 import moe.fuqiuluo.mamu.floating.service.FloatingWindowService
+import moe.fuqiuluo.mamu.ui.tutorial.components.TutorialDialog
 import moe.fuqiuluo.mamu.ui.theme.MXTheme
+import moe.fuqiuluo.mamu.ui.tutorial.TutorialManager
 import moe.fuqiuluo.mamu.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    viewModel: MainViewModel = viewModel()
+    viewModel: MainViewModel = viewModel(),
+    onStartPractice: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    // 教程弹窗状态
+    val showTutorial by TutorialManager.shouldShowTutorial.collectAsStateWithLifecycle()
+
+    // 新手教程弹窗
+    if (showTutorial) {
+        TutorialDialog(
+            onDismiss = { TutorialManager.dismissTutorial() },
+            onComplete = { TutorialManager.completeTutorial() },
+            onStartPractice = if (onStartPractice != null) {
+                {
+                    // 启动悬浮窗
+                    if (!uiState.isFloatingWindowActive) {
+                        val intent = Intent(context, FloatingWindowService::class.java)
+                        context.startService(intent)
+                    }
+                    onStartPractice()
+                }
+            } else null
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -261,7 +285,7 @@ fun ReadmeCard() {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "FloatingWindowService 可能被目标应用检测到（通过 Service 查询）" +
-                        "请用户自行实现应用隐藏（修改包名、进程名、使用 Xposed/LSPosed 隐藏等），" +
+                        "请自行实现应用隐藏（修改包名、进程名、使用 Xposed/LSPosed 隐藏等），" +
                         "否则可能被特定系统检测并导致封号，影响日常进程使用，尽管Mamu只是一个调试工具。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
