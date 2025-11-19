@@ -246,6 +246,14 @@ private fun calculateStepStates(state: PermissionSetupState): List<StepState> {
             StepState(SetupStep.COMPLETED, StepStatus.PENDING)
         )
 
+        is PermissionSetupState.ApplyingAntiKillProtection -> listOf(
+            StepState(SetupStep.CHECK_ROOT, StepStatus.COMPLETED),
+            StepState(SetupStep.CONFIRM_ROOT, StepStatus.COMPLETED),
+            StepState(SetupStep.GRANT_PERMISSIONS, StepStatus.ACTIVE),
+            StepState(SetupStep.CHECK_DRIVER, StepStatus.PENDING),
+            StepState(SetupStep.COMPLETED, StepStatus.PENDING)
+        )
+
         is PermissionSetupState.CheckingDriver -> listOf(
             StepState(SetupStep.CHECK_ROOT, StepStatus.COMPLETED),
             StepState(SetupStep.CONFIRM_ROOT, StepStatus.COMPLETED),
@@ -538,6 +546,13 @@ private fun StepContent(
                     currentPermission = state.currentPermission
                 )
             }
+            is PermissionSetupState.ApplyingAntiKillProtection -> {
+                ApplyingAntiKillProtectionContent(
+                    current = state.current,
+                    total = state.total,
+                    currentMeasure = state.currentMeasure
+                )
+            }
             is PermissionSetupState.CheckingDriver -> {
                 CheckingDriverContent()
             }
@@ -799,6 +814,79 @@ private fun GrantingPermissionsContent(
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = currentPermission,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+@Composable
+private fun ApplyingAntiKillProtectionContent(
+    current: Int,
+    total: Int,
+    currentMeasure: String
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box {
+                    CircularProgressIndicator(
+                        progress = { current.toFloat() / total.toFloat() },
+                        modifier = Modifier.size(48.dp),
+                        strokeWidth = 4.dp,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                    Text(
+                        text = "$current",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "应用究极免杀保护",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "$current / $total",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            LinearProgressIndicator(
+                progress = { current.toFloat() / total.toFloat() },
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.tertiary
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "当前保护措施",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = currentMeasure,
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Medium
             )

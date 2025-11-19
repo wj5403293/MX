@@ -1,5 +1,7 @@
 package moe.fuqiuluo.mamu.ui.screen
 
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -11,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -18,6 +21,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import moe.fuqiuluo.mamu.data.model.DriverStatus
 import moe.fuqiuluo.mamu.data.model.SeLinuxMode
 import moe.fuqiuluo.mamu.data.model.SystemInfo
+import moe.fuqiuluo.mamu.floating.service.FloatingWindowService
 import moe.fuqiuluo.mamu.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -26,6 +30,7 @@ fun HomeScreen(
     viewModel: MainViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -37,6 +42,13 @@ fun HomeScreen(
                     }
                 }
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { startFloatingWindowService(context) }
+            ) {
+                Icon(Icons.Default.Window, contentDescription = "启动悬浮窗")
+            }
         }
     ) { paddingValues ->
         if (uiState.isLoading) {
@@ -57,24 +69,20 @@ fun HomeScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // 驱动状态卡片
-                DriverStatusCard(
-                    status = uiState.driverInfo?.status,
+                // 状态概览卡片（合并驱动、Root、SELinux）
+                StatusOverviewCard(
+                    driverStatus = uiState.driverInfo?.status,
                     isProcessBound = uiState.driverInfo?.isProcessBound ?: false,
                     boundPid = uiState.driverInfo?.boundPid ?: -1,
-                    errorMessage = uiState.driverInfo?.errorMessage
+                    hasRoot = uiState.hasRootAccess,
+                    seLinuxMode = uiState.seLinuxStatus?.mode,
+                    seLinuxModeString = uiState.seLinuxStatus?.modeString
                 )
 
-                // Root权限状态卡片
-                RootStatusCard(hasRoot = uiState.hasRootAccess)
+                // README 卡片
+                ReadmeCard()
 
-                // SELinux状态卡片
-                SeLinuxStatusCard(
-                    mode = uiState.seLinuxStatus?.mode,
-                    modeString = uiState.seLinuxStatus?.modeString
-                )
-
-                // 系统信息卡片
+                // 系统信息卡片（简化版）
                 SystemInfoCard(
                     systemInfo = uiState.systemInfo
                 )
@@ -109,102 +117,101 @@ fun HomeScreen(
     }
 }
 
-@Composable
-fun DriverStatusCard(
-    status: DriverStatus?,
-    isProcessBound: Boolean,
-    boundPid: Int,
-    errorMessage: String?
-) {
-    StatusCard(
-        title = "驱动状态",
-        icon = Icons.Default.Settings
-    ) {
-        when (status) {
-            DriverStatus.LOADED -> {
-                StatusItem(
-                    label = "状态",
-                    value = "已加载",
-                    color = MaterialTheme.colorScheme.primary
-                )
-                if (isProcessBound && boundPid > 0) {
-                    StatusItem(
-                        label = "绑定进程",
-                        value = "PID: $boundPid",
-                        color = MaterialTheme.colorScheme.secondary
-                    )
-                } else {
-                    StatusItem(
-                        label = "绑定进程",
-                        value = "未绑定",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            DriverStatus.NOT_LOADED -> {
-                StatusItem(
-                    label = "状态",
-                    value = "未加载",
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-            DriverStatus.ERROR -> {
-                StatusItem(
-                    label = "状态",
-                    value = "错误",
-                    color = MaterialTheme.colorScheme.error
-                )
-                errorMessage?.let {
-                    StatusItem(
-                        label = "错误信息",
-                        value = it,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-            null -> {
-                StatusItem(
-                    label = "状态",
-                    value = "未知",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
+private fun startFloatingWindowService(context: Context) {
+    val intent = Intent(context, FloatingWindowService::class.java)
+    context.startService(intent)
 }
 
 @Composable
-fun RootStatusCard(hasRoot: Boolean) {
+fun StatusOverviewCard(
+    driverStatus: DriverStatus?,
+    isProcessBound: Boolean,
+    boundPid: Int,
+    hasRoot: Boolean,
+    seLinuxMode: SeLinuxMode?,
+    seLinuxModeString: String?
+) {
     StatusCard(
-        title = "Root权限",
-        icon = Icons.Default.AdminPanelSettings
+        title = "状态概览",
+        icon = Icons.Default.Dashboard
     ) {
+        // 驱动状态
+        val driverStatusText = when (driverStatus) {
+            DriverStatus.LOADED -> if (isProcessBound && boundPid > 0) "已加载 (PID: $boundPid)" else "已加载"
+            DriverStatus.NOT_LOADED -> "未加载"
+            DriverStatus.ERROR -> "错误"
+            null -> "未知"
+        }
+        val driverColor = when (driverStatus) {
+            DriverStatus.LOADED -> MaterialTheme.colorScheme.primary
+            else -> MaterialTheme.colorScheme.error
+        }
         StatusItem(
-            label = "状态",
+            label = "驱动",
+            value = driverStatusText,
+            color = driverColor
+        )
+
+        // Root权限
+        StatusItem(
+            label = "Root",
             value = if (hasRoot) "已获取" else "未获取",
             color = if (hasRoot) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
         )
-    }
-}
 
-@Composable
-fun SeLinuxStatusCard(mode: SeLinuxMode?, modeString: String?) {
-    StatusCard(
-        title = "SELinux状态",
-        icon = Icons.Default.Security
-    ) {
-        val (statusText, statusColor) = when (mode) {
+        // SELinux状态
+        val (selinuxText, selinuxColor) = when (seLinuxMode) {
             SeLinuxMode.ENFORCING -> "强制模式" to MaterialTheme.colorScheme.error
             SeLinuxMode.PERMISSIVE -> "宽容模式" to MaterialTheme.colorScheme.tertiary
             SeLinuxMode.DISABLED -> "已禁用" to MaterialTheme.colorScheme.primary
             SeLinuxMode.UNKNOWN, null -> "未知" to MaterialTheme.colorScheme.onSurfaceVariant
         }
-
         StatusItem(
-            label = "模式",
-            value = modeString ?: statusText,
-            color = statusColor
+            label = "SELinux",
+            value = seLinuxModeString ?: selinuxText,
+            color = selinuxColor
         )
+    }
+}
+
+@Composable
+fun ReadmeCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Description,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "关于 Mamu",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "Mamu 是一个需要 Root 权限的 Android 内存操作和调试工具。" +
+                        "通过悬浮窗界面，可以在运行时搜索、监控和修改进程内存。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "点击右下角按钮启动悬浮窗",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
 
@@ -213,19 +220,20 @@ fun SystemInfoCard(
     systemInfo: SystemInfo
 ) {
     StatusCard(
-        title = "系统信息",
-        icon = Icons.Default.Info
+        title = "设备信息",
+        icon = Icons.Default.PhoneAndroid
     ) {
-        StatusItem(label = "设备型号", value = systemInfo.deviceModel)
-        StatusItem(label = "设备制造商", value = systemInfo.deviceManufacturer)
-        StatusItem(label = "设备品牌", value = systemInfo.deviceBrand)
-        StatusItem(label = "Android版本", value = systemInfo.androidVersion)
-        StatusItem(label = "SDK版本", value = systemInfo.sdkVersion.toString())
-        StatusItem(label = "内核版本", value = systemInfo.kernelVersion)
-        StatusItem(label = "CPU架构", value = systemInfo.cpuAbi)
         StatusItem(
-            label = "支持的ABI",
-            value = systemInfo.allCpuAbis.joinToString(", ")
+            label = "设备",
+            value = "${systemInfo.deviceBrand} ${systemInfo.deviceModel}"
+        )
+        StatusItem(
+            label = "系统",
+            value = "Android ${systemInfo.androidVersion} (API ${systemInfo.sdkVersion})"
+        )
+        StatusItem(
+            label = "架构",
+            value = systemInfo.cpuAbi
         )
     }
 }

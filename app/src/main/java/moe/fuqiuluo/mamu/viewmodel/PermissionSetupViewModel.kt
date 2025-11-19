@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import moe.fuqiuluo.mamu.utils.AntiKillProtectionManager
 import moe.fuqiuluo.mamu.utils.DriverInstaller
 import moe.fuqiuluo.mamu.utils.PermissionConfig
 import moe.fuqiuluo.mamu.utils.PermissionManager
@@ -38,6 +39,13 @@ sealed class PermissionSetupState {
         val current: Int,
         val total: Int,
         val currentPermission: String
+    ) : PermissionSetupState()
+
+    /** 正在应用究极免杀保护 */
+    data class ApplyingAntiKillProtection(
+        val current: Int,
+        val total: Int,
+        val currentMeasure: String
     ) : PermissionSetupState()
 
     /** 正在检查驱动 */
@@ -185,13 +193,50 @@ class PermissionSetupViewModel(application: Application) : AndroidViewModel(appl
                     }
                 )
 
-                // 权限授予完成，开始检查驱动
-                checkDriver(grantedCount, totalCount)
+                // 权限授予完成，检查是否需要应用究极免杀保护
+                if (AntiKillProtectionManager.isEnabled()) {
+                    applyAntiKillProtection(grantedCount, totalCount)
+                } else {
+                    // 不需要应用保护，直接检查驱动
+                    checkDriver(grantedCount, totalCount)
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Error granting permissions", e)
                 withContext(Dispatchers.Main) {
                     _state.value = PermissionSetupState.Error("授予权限时出错: ${e.message}")
                 }
+            }
+        }
+    }
+
+    /**
+     * 应用究极免杀保护
+     */
+    private suspend fun applyAntiKillProtection(grantedCount: Int = 0, totalCount: Int = 0) {
+        withContext(Dispatchers.IO) {
+            try {
+                Log.d(TAG, "Applying anti-kill protection")
+                val (successCount, protectionTotal) = AntiKillProtectionManager.applyProtection(
+                    context = getApplication(),
+                    onProgress = { current, total, measureName ->
+                        viewModelScope.launch(Dispatchers.Main) {
+                            _state.value = PermissionSetupState.ApplyingAntiKillProtection(
+                                current = current,
+                                total = total,
+                                currentMeasure = measureName
+                            )
+                        }
+                    }
+                )
+
+                Log.d(TAG, "Anti-kill protection applied: $successCount/$protectionTotal")
+
+                // 应用保护完成后，继续检查驱动
+                checkDriver(grantedCount, totalCount)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error applying anti-kill protection", e)
+                // 即使保护应用失败，也继续检查驱动，不阻止流程
+                checkDriver(grantedCount, totalCount)
             }
         }
     }
