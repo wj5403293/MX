@@ -14,14 +14,17 @@ import moe.fuqiuluo.mamu.driver.SearchResultItem
 import moe.fuqiuluo.mamu.driver.WuwaDriver
 import moe.fuqiuluo.mamu.floating.ext.searchPageSize
 import moe.fuqiuluo.mamu.floating.adapter.SearchResultAdapter
+import moe.fuqiuluo.mamu.floating.data.local.MemoryBackupManager
 import moe.fuqiuluo.mamu.floating.dialog.FilterDialog
 import moe.fuqiuluo.mamu.floating.dialog.FilterDialogState
 import moe.fuqiuluo.mamu.floating.dialog.ModifyValueDialog
 import moe.fuqiuluo.mamu.floating.dialog.RemoveOptionsDialog
 import moe.fuqiuluo.mamu.floating.dialog.SearchDialog
 import moe.fuqiuluo.mamu.floating.dialog.SearchDialogState
-import moe.fuqiuluo.mamu.floating.model.DisplayMemRegionEntry
-import moe.fuqiuluo.mamu.floating.model.DisplayProcessInfo
+import moe.fuqiuluo.mamu.floating.data.model.DisplayMemRegionEntry
+import moe.fuqiuluo.mamu.floating.data.model.DisplayProcessInfo
+import moe.fuqiuluo.mamu.floating.data.model.MemoryBackupRecord
+import moe.fuqiuluo.mamu.floating.utils.ValueTypeUtils
 import moe.fuqiuluo.mamu.utils.ByteFormatUtils.formatBytes
 import moe.fuqiuluo.mamu.widget.NotificationOverlay
 import moe.fuqiuluo.mamu.widget.ToolbarAction
@@ -546,8 +549,40 @@ class SearchController(
             notification = notification,
             clipboardManager = clipboardManager,
             searchResultItem = result,
-            onConfirm = { newValue, valueType ->
-                notification.showSuccess("修改值功能待实现: $newValue (${valueType.displayName})")
+            onConfirm = { address, oldValue, newValue, valueType ->
+                if (!WuwaDriver.isProcessBound) {
+                    notification.showError("未选中任何进程")
+                    return@ModifyValueDialog
+                }
+
+                try {
+                    val dataBytes = ValueTypeUtils.parseExprToBytes(newValue, valueType)
+
+                    // 有没有备份都覆盖，主要是就是拿上一次的值而已
+                    MemoryBackupManager.saveBackup(address, oldValue, valueType)
+
+                    val success = WuwaDriver.writeMemory(address, dataBytes)
+                    if (success) {
+                        // ViewHolder will automatically display backup value if exists
+                        searchResultAdapter.updateItemValueByAddress(address, newValue)
+
+                        notification.showSuccess(
+                            context.getString(R.string.modify_success_message, String.format("%X", address))
+                        )
+                    } else {
+                        notification.showError(
+                            context.getString(R.string.modify_failed_message, String.format("%X", address))
+                        )
+                    }
+                } catch (e: IllegalArgumentException) {
+                    notification.showError(
+                        context.getString(R.string.error_invalid_value_format, e.message ?: "Unknown error")
+                    )
+                } catch (e: Exception) {
+                    notification.showError(
+                        context.getString(R.string.error_modify_failed, e.message ?: "Unknown error")
+                    )
+                }
             }
         )
 

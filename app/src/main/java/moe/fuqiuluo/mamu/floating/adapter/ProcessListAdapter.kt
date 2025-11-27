@@ -5,7 +5,7 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import moe.fuqiuluo.mamu.databinding.ItemProcessListBinding
-import moe.fuqiuluo.mamu.floating.model.DisplayProcessInfo
+import moe.fuqiuluo.mamu.floating.data.model.DisplayProcessInfo
 import moe.fuqiuluo.mamu.utils.ByteFormatUtils.formatBytes
 
 class ProcessListAdapter(

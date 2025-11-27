@@ -6,10 +6,10 @@ import android.view.View
 import androidx.recyclerview.widget.LinearLayoutManager
 import kotlinx.coroutines.*
 import moe.fuqiuluo.mamu.R
-import moe.fuqiuluo.mamu.data.model.SavedAddress
+import moe.fuqiuluo.mamu.floating.data.model.SavedAddress
 import moe.fuqiuluo.mamu.databinding.FloatingSavedAddressesLayoutBinding
 import moe.fuqiuluo.mamu.floating.adapter.SavedAddressAdapter
-import moe.fuqiuluo.mamu.floating.model.DisplayProcessInfo
+import moe.fuqiuluo.mamu.floating.data.model.DisplayProcessInfo
 import moe.fuqiuluo.mamu.utils.ByteFormatUtils.formatBytes
 import moe.fuqiuluo.mamu.widget.NotificationOverlay
 
@@ -24,7 +24,6 @@ class SavedAddressController(
     // 列表适配器
     private val adapter: SavedAddressAdapter = SavedAddressAdapter(
         onItemClick = { address, position ->
-            // TODO: 点击修改值
             notification.showWarning("点击了 ${address.name}")
         },
         onFreezeToggle = { address, isFrozen ->

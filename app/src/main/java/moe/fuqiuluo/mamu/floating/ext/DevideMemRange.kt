@@ -2,8 +2,8 @@ package moe.fuqiuluo.mamu.floating.ext
 
 import moe.fuqiuluo.mamu.driver.MemRegionEntry
 import moe.fuqiuluo.mamu.driver.WuwaDriver
-import moe.fuqiuluo.mamu.floating.model.DisplayMemRegionEntry
-import moe.fuqiuluo.mamu.floating.model.MemoryRange
+import moe.fuqiuluo.mamu.floating.data.model.DisplayMemRegionEntry
+import moe.fuqiuluo.mamu.floating.data.model.MemoryRange
 
 fun Array<MemRegionEntry>.divideToSimpleMemoryRange(): List<DisplayMemRegionEntry> {
     val currentPid = WuwaDriver.currentBindPid

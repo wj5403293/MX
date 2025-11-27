@@ -7,7 +7,6 @@ import android.content.res.Configuration
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
-import com.google.android.material.textview.MaterialTextView
 import com.tencent.mmkv.MMKV
 import moe.fuqiuluo.mamu.R
 import moe.fuqiuluo.mamu.databinding.DialogModifyValueBinding
@@ -16,7 +15,7 @@ import moe.fuqiuluo.mamu.driver.FuzzySearchResultItem
 import moe.fuqiuluo.mamu.driver.SearchResultItem
 import moe.fuqiuluo.mamu.floating.ext.floatingOpacity
 import moe.fuqiuluo.mamu.floating.ext.keyboardType
-import moe.fuqiuluo.mamu.floating.model.DisplayValueType
+import moe.fuqiuluo.mamu.floating.data.model.DisplayValueType
 import moe.fuqiuluo.mamu.widget.BuiltinKeyboard
 import moe.fuqiuluo.mamu.widget.NotificationOverlay
 import moe.fuqiuluo.mamu.widget.simpleSingleChoiceDialog
@@ -29,8 +28,10 @@ class ModifyValueDialog(
     private val notification: NotificationOverlay,
     private val clipboardManager: ClipboardManager,
     private val searchResultItem: SearchResultItem,
-    private val onConfirm: ((newValue: String, valueType: DisplayValueType) -> Unit)? = null
+    private val onConfirm: ((address: Long, oldValue: String, newValue: String, valueType: DisplayValueType) -> Unit)? = null
 ) : BaseDialog(context) {
+    lateinit var value: String
+    var address: Long = Long.MIN_VALUE
 
     @SuppressLint("ClickableViewAccessibility", "SetTextI18n")
     override fun setupDialog() {
@@ -61,9 +62,7 @@ class ModifyValueDialog(
             binding.divider.visibility = View.GONE
         }
 
-        val address: Long
         val displayValueType: DisplayValueType
-        val value: String
         when (searchResultItem) {
             is ExactSearchResultItem -> {
                 address = searchResultItem.address
@@ -198,7 +197,7 @@ class ModifyValueDialog(
                 return@setOnClickListener
             }
 
-            onConfirm?.invoke(newValue, currentValueType)
+            onConfirm?.invoke(address, value, newValue, currentValueType)
             dialog.dismiss()
         }
     }

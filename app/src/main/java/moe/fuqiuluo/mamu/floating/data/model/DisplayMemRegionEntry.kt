@@ -1,6 +1,4 @@
-package moe.fuqiuluo.mamu.floating.model
-
-import moe.fuqiuluo.mamu.floating.model.MemoryRange
+package moe.fuqiuluo.mamu.floating.data.model
 
 data class DisplayMemRegionEntry(
     val start: Long, val end: Long, val type: Int, val name: String, val range: MemoryRange

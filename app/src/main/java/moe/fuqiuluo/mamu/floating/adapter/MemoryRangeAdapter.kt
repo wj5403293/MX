@@ -7,7 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseAdapter
 import moe.fuqiuluo.mamu.databinding.ItemMemoryRangeChoiceBinding
-import moe.fuqiuluo.mamu.floating.model.MemoryRange
+import moe.fuqiuluo.mamu.floating.data.model.MemoryRange
 import moe.fuqiuluo.mamu.utils.ByteFormatUtils
 
 /**

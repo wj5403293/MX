@@ -2,7 +2,7 @@ package moe.fuqiuluo.mamu.floating.ext
 
 import com.tencent.mmkv.MMKV
 import moe.fuqiuluo.mamu.driver.WuwaDriver
-import moe.fuqiuluo.mamu.floating.model.MemoryRange
+import moe.fuqiuluo.mamu.floating.data.model.MemoryRange
 
 private const val KEY_OPACITY = "opacity"
 private const val KEY_MEMORY_RANGES = "memory_ranges"

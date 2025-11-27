@@ -1,10 +1,13 @@
 package moe.fuqiuluo.mamu.floating.ext
 
+import android.annotation.SuppressLint
+
 /**
  * 格式化耗时，自动选择合适的单位
  * @param millis 毫秒数
  * @return 格式化后的字符串，例如 "150ms" 或 "2.5s" 或 "1m 30s"
  */
+@SuppressLint("DefaultLocale")
 fun formatElapsedTime(millis: Long): String {
     return when {
         millis < 1000 -> "${millis}ms"

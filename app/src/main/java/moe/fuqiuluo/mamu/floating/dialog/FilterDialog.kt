@@ -12,7 +12,7 @@ import moe.fuqiuluo.mamu.R
 import moe.fuqiuluo.mamu.databinding.DialogFilterBinding
 import moe.fuqiuluo.mamu.floating.ext.floatingOpacity
 import moe.fuqiuluo.mamu.floating.ext.keyboardType
-import moe.fuqiuluo.mamu.floating.model.DisplayValueType
+import moe.fuqiuluo.mamu.floating.data.model.DisplayValueType
 import moe.fuqiuluo.mamu.widget.BuiltinKeyboard
 import moe.fuqiuluo.mamu.widget.NotificationOverlay
 import moe.fuqiuluo.mamu.widget.multiChoiceDialog

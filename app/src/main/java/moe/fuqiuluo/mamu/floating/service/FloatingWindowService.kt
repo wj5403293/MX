@@ -24,10 +24,9 @@ import android.view.animation.AlphaAnimation
 import android.view.animation.Animation
 import android.widget.*
 import androidx.core.view.isVisible
-import androidx.core.view.updateLayoutParams
 import com.tencent.mmkv.MMKV
 import moe.fuqiuluo.mamu.R
-import moe.fuqiuluo.mamu.data.model.SavedAddress
+import moe.fuqiuluo.mamu.floating.data.model.SavedAddress
 import moe.fuqiuluo.mamu.databinding.FloatingFullscreenLayoutBinding
 import moe.fuqiuluo.mamu.databinding.FloatingWindowLayoutBinding
 import moe.fuqiuluo.mamu.driver.ExactSearchResultItem
@@ -41,7 +40,7 @@ import moe.fuqiuluo.mamu.floating.ext.topMostLayer
 import moe.fuqiuluo.mamu.floating.controller.*
 import moe.fuqiuluo.mamu.floating.ext.applyOpacity
 import moe.fuqiuluo.mamu.floating.listener.DraggableFloatingIconTouchListener
-import moe.fuqiuluo.mamu.floating.model.DisplayProcessInfo
+import moe.fuqiuluo.mamu.floating.data.model.DisplayProcessInfo
 import moe.fuqiuluo.mamu.widget.*
 
 private const val TAG = "FloatingWindowService"

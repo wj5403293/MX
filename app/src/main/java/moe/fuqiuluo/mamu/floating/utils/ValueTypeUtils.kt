@@ -1,0 +1,140 @@
+@file:OptIn(ExperimentalUnsignedTypes::class)
+
+package moe.fuqiuluo.mamu.floating.utils
+
+import moe.fuqiuluo.mamu.floating.data.model.DisplayValueType
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+
+object ValueTypeUtils {
+    /**
+     * Parse expression string to byte array based on value type
+     * @param expr Input expression string
+     * @param valueType Target value type for conversion
+     * @return Byte array representation in little-endian format
+     */
+    fun parseExprToBytes(expr: String, valueType: DisplayValueType): ByteArray {
+        val formattedExpr = expr.trim()
+
+        when (valueType) {
+            DisplayValueType.AUTO -> {
+                throw IllegalArgumentException("AUTO type should not be used for value conversion")
+            }
+
+            DisplayValueType.BYTE -> {
+                val value = formattedExpr.toLongOrNull()
+                    ?: throw IllegalArgumentException("Invalid byte value: $formattedExpr")
+                when {
+                    value in -128L..255L -> return byteArrayOf(value.toByte())
+                    else -> throw IllegalArgumentException("Byte value out of range (-128~255): $value")
+                }
+            }
+
+            DisplayValueType.WORD -> {
+                val value = formattedExpr.toLongOrNull()
+                    ?: throw IllegalArgumentException("Invalid word value: $formattedExpr")
+
+                val buffer = ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN)
+                when (value) {
+                    in Short.MIN_VALUE.toLong()..Short.MAX_VALUE.toLong() ->
+                        buffer.putShort(value.toShort())
+
+                    in 0L..0xFFFFL ->
+                        buffer.putShort(value.toShort()) // Unsigned range, cast to signed
+
+                    else -> throw IllegalArgumentException("Word value out of range (-32768~65535): $value")
+                }
+                return buffer.array()
+            }
+
+            DisplayValueType.DWORD -> {
+                val value = formattedExpr.toLongOrNull()
+                    ?: throw IllegalArgumentException("Invalid dword value: $formattedExpr")
+
+                val buffer = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN)
+                when (value) {
+                    in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong() ->
+                        buffer.putInt(value.toInt())
+
+                    in 0L..0xFFFFFFFFL ->
+                        buffer.putInt(value.toInt()) // Unsigned range, cast to signed
+
+                    else -> throw IllegalArgumentException("Dword value out of range (-2147483648~4294967295): $value")
+                }
+                return buffer.array()
+            }
+
+            DisplayValueType.QWORD -> {
+                val buffer = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN)
+                try {
+                    // Try signed first (covers -9223372036854775808 ~ 9223372036854775807)
+                    buffer.putLong(formattedExpr.toLong())
+                } catch (e: NumberFormatException) {
+                    // Fallback to unsigned (covers 0 ~ 18446744073709551615)
+                    try {
+                        buffer.putLong(formattedExpr.toULong().toLong()) // Unsigned to signed cast
+                    } catch (e2: NumberFormatException) {
+                        throw IllegalArgumentException("Invalid qword value: $formattedExpr", e2)
+                    }
+                }
+                return buffer.array()
+            }
+
+            DisplayValueType.FLOAT -> {
+                val value = formattedExpr.toFloatOrNull()
+                    ?: throw IllegalArgumentException("Invalid float value: $formattedExpr")
+                return ByteBuffer.allocate(4)
+                    .order(ByteOrder.LITTLE_ENDIAN)
+                    .putFloat(value)
+                    .array()
+            }
+
+            DisplayValueType.DOUBLE -> {
+                val value = formattedExpr.toDoubleOrNull()
+                    ?: throw IllegalArgumentException("Invalid double value: $formattedExpr")
+                return ByteBuffer.allocate(8)
+                    .order(ByteOrder.LITTLE_ENDIAN)
+                    .putDouble(value)
+                    .array()
+            }
+
+            DisplayValueType.XOR -> {
+                // XOR type uses same format as DWORD but indicates XOR encryption context
+                val value = formattedExpr.toLongOrNull()
+                    ?: throw IllegalArgumentException("Invalid xor value: $formattedExpr")
+
+                val buffer = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN)
+                when (value) {
+                    in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong() ->
+                        buffer.putInt(value.toInt())
+
+                    in 0L..0xFFFFFFFFL ->
+                        buffer.putInt(value.toInt()) // Unsigned range, cast to signed
+
+                    else -> throw IllegalArgumentException("Xor value out of range (-2147483648~4294967295): $value")
+                }
+                return buffer.array()
+            }
+
+            DisplayValueType.UTF_8 -> {
+                return formattedExpr.toByteArray(Charsets.UTF_8)
+            }
+
+            DisplayValueType.UTF_16LE -> {
+                return formattedExpr.toByteArray(Charsets.UTF_16LE)
+            }
+
+            DisplayValueType.HEX -> {
+                TODO("HEX")
+            }
+
+            DisplayValueType.HEX_MIXED -> {
+                TODO("HEX_MIXED")
+            }
+
+            DisplayValueType.ARM, DisplayValueType.ARM64 -> {
+                TODO("ARM64")
+            }
+        }
+    }
+}

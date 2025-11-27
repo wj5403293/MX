@@ -73,6 +73,8 @@ dependencies {
     implementation(libs.androidx.viewpager2)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.material)
+    implementation(libs.fastutil)
+    implementation("org.jetbrains.kotlinx:kotlinx-io-jvm:0.1.16")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

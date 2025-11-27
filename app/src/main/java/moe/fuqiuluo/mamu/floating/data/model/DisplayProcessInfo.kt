@@ -1,4 +1,4 @@
-package moe.fuqiuluo.mamu.floating.model
+package moe.fuqiuluo.mamu.floating.data.model
 
 import android.graphics.drawable.Drawable
 

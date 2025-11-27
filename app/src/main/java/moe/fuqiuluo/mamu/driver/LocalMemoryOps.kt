@@ -3,7 +3,7 @@ package moe.fuqiuluo.mamu.driver
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-object MemoryOps {
+object LocalMemoryOps {
 
     /**
      * 分配指定大小的内存

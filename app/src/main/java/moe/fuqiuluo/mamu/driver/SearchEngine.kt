@@ -3,8 +3,8 @@
 package moe.fuqiuluo.mamu.driver
 
 import moe.fuqiuluo.mamu.floating.ext.divideToSimpleMemoryRange
-import moe.fuqiuluo.mamu.floating.model.DisplayValueType
-import moe.fuqiuluo.mamu.floating.model.MemoryRange
+import moe.fuqiuluo.mamu.floating.data.model.DisplayValueType
+import moe.fuqiuluo.mamu.floating.data.model.MemoryRange
 import java.nio.ByteBuffer
 
 object SearchEngine {
@@ -239,7 +239,6 @@ object SearchEngine {
      * 改善搜索（native）- 基于上一次搜索结果进行再次搜索
      * @param query 搜索内容
      * @param defaultType 数据类型ID
-     * @param memoryMode 内存搜索模式
      * @param cb 搜索进度回调
      * @return 搜索到的结果数量
      */

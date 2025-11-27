@@ -7,8 +7,7 @@ import com.tencent.mmkv.MMKV
 import moe.fuqiuluo.mamu.databinding.DialogMultiChoiceBinding
 import moe.fuqiuluo.mamu.floating.adapter.MemoryRangeAdapter
 import moe.fuqiuluo.mamu.floating.ext.floatingOpacity
-import moe.fuqiuluo.mamu.floating.model.MemoryRange
-import moe.fuqiuluo.mamu.floating.dialog.BaseDialog
+import moe.fuqiuluo.mamu.floating.data.model.MemoryRange
 import kotlin.math.max
 
 class MemoryRangeDialog(

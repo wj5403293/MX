@@ -1,6 +1,6 @@
 package moe.fuqiuluo.mamu.floating.dialog
 
-import moe.fuqiuluo.mamu.floating.model.DisplayValueType
+import moe.fuqiuluo.mamu.floating.data.model.DisplayValueType
 
 // 用于保存过滤对话框的状态
 data class FilterDialogState(

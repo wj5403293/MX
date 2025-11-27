@@ -1,4 +1,4 @@
-package moe.fuqiuluo.mamu.floating.model
+package moe.fuqiuluo.mamu.floating.data.model
 
 import androidx.annotation.ColorInt
 import androidx.core.graphics.toColorInt

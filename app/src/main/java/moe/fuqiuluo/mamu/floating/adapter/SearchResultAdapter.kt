@@ -1,14 +1,17 @@
 package moe.fuqiuluo.mamu.floating.adapter
 
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import moe.fuqiuluo.mamu.databinding.ItemSearchResultBinding
 import moe.fuqiuluo.mamu.driver.ExactSearchResultItem
+import moe.fuqiuluo.mamu.driver.FuzzySearchResultItem
 import moe.fuqiuluo.mamu.driver.SearchResultItem
-import moe.fuqiuluo.mamu.floating.model.DisplayMemRegionEntry
-import moe.fuqiuluo.mamu.floating.model.DisplayValueType
-import moe.fuqiuluo.mamu.floating.model.MemoryRange
+import moe.fuqiuluo.mamu.floating.data.local.MemoryBackupManager
+import moe.fuqiuluo.mamu.floating.data.model.DisplayMemRegionEntry
+import moe.fuqiuluo.mamu.floating.data.model.DisplayValueType
+import moe.fuqiuluo.mamu.floating.data.model.MemoryRange
 
 class SearchResultAdapter(
     // 点击事件回调
@@ -52,6 +55,37 @@ class SearchResultAdapter(
         }
 
         onSelectionChanged(0) // 通知选中状态变化
+    }
+
+    /**
+     * 根据地址更新单个搜索结果项的值
+     * @param address 要更新的地址
+     * @param newValue 新的值（不包含备份信息，备份值会在 ViewHolder 中自动显示）
+     * @return 是否找到并更新了该项
+     */
+    fun updateItemValueByAddress(address: Long, newValue: String): Boolean {
+        val position = results.indexOfFirst {
+            when (it) {
+                is ExactSearchResultItem -> it.address == address
+                is FuzzySearchResultItem -> it.address == address
+                else -> false
+            }
+        }
+
+        if (position == -1) {
+            return false
+        }
+
+        val newItem = when (val oldItem = results[position]) {
+            is ExactSearchResultItem -> oldItem.copy(value = newValue)
+            is FuzzySearchResultItem -> oldItem.copy(value = newValue)
+            else -> return false
+        }
+
+        results[position] = newItem
+        // 刷新该项，ViewHolder 的 bind 方法会自动检查并显示备份值
+        notifyItemChanged(position)
+        return true
     }
 
     /**
@@ -222,6 +256,49 @@ class SearchResultAdapter(
                         // 当前值
                         valueText.text = item.value
 
+                        // 备份值（旧值）
+                        val backup = MemoryBackupManager.getBackup(item.address)
+                        if (backup != null) {
+                            backupValueText.text = "(${backup.originalValue})"
+                            backupValueText.visibility = View.VISIBLE
+                        } else {
+                            backupValueText.visibility = View.GONE
+                        }
+
+                        // 类型简称和颜色
+                        val valueType = item.displayValueType ?: DisplayValueType.DWORD
+                        typeText.apply {
+                            text = valueType.code
+                            setTextColor(valueType.textColor)
+                        }
+
+                        // 内存范围简称和颜色
+                        val memoryRange = ranges?.firstOrNull { it.containsAddress(item.address) }?.range
+                            ?: MemoryRange.O
+                        rangeText.apply {
+                            text = memoryRange.code
+                            setTextColor(memoryRange.color)
+                        }
+                    }
+                }
+
+                is FuzzySearchResultItem -> {
+                    binding.apply {
+                        // 地址
+                        addressText.text = item.address.toString(16).uppercase()
+
+                        // 当前值
+                        valueText.text = item.value
+
+                        // 备份值（旧值）
+                        val backup = MemoryBackupManager.getBackup(item.address)
+                        if (backup != null) {
+                            backupValueText.text = "(${backup.originalValue})"
+                            backupValueText.visibility = View.VISIBLE
+                        } else {
+                            backupValueText.visibility = View.GONE
+                        }
+
                         // 类型简称和颜色
                         val valueType = item.displayValueType ?: DisplayValueType.DWORD
                         typeText.apply {
@@ -243,6 +320,7 @@ class SearchResultAdapter(
                     binding.apply {
                         addressText.text = "0"
                         valueText.text = "0"
+                        backupValueText.visibility = View.GONE
                         typeText.text = "?"
                         rangeText.text = "?"
                     }
@@ -304,7 +382,7 @@ class SearchResultAdapter(
 
         private fun updateItemBackground(isSelected: Boolean) {
             binding.itemContainer.setBackgroundColor(
-                if (isSelected) 0x33448AFF.toInt() else 0x00000000
+                if (isSelected) 0x33448AFF else 0x00000000
             )
         }
     }

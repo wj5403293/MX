@@ -1,4 +1,4 @@
-package moe.fuqiuluo.mamu.floating.model
+package moe.fuqiuluo.mamu.floating.data.model
 
 import android.graphics.Color
 import moe.fuqiuluo.mamu.R
@@ -12,7 +12,8 @@ enum class DisplayValueType(
     val rangeDescription: String,
     val iconRes: Int,
     val textColor: Int,
-    val nativeId: Int
+    val nativeId: Int,
+    val memorySize: Long
 ) {
     AUTO(
         code = "A",
@@ -20,7 +21,8 @@ enum class DisplayValueType(
         rangeDescription = "输入从-1.8e+308到1.8e+308的值",
         iconRes = R.drawable.type_auto_24px,
         textColor = Color.WHITE,
-        nativeId = 6
+        nativeId = 6,
+        memorySize = 4L,
     ),
     DWORD(
         code = "D",
@@ -28,7 +30,8 @@ enum class DisplayValueType(
         rangeDescription = "输入从-2,147,483,648到4,294,967,295的值",
         iconRes = R.drawable.type_integer_24px,
         textColor = 0xFF87CEEB.toInt(),
-        nativeId = 2
+        nativeId = 2,
+        memorySize = 4,
     ),
     FLOAT(
         code = "F",
@@ -36,7 +39,8 @@ enum class DisplayValueType(
         rangeDescription = "输入从-3.4e+38到3.4e+38的值",
         iconRes = R.drawable.type_float_24px,
         textColor = 0xFFFF69B4.toInt(),
-        nativeId = 4
+        nativeId = 4,
+        memorySize = 4,
     ),
     DOUBLE(
         code = "E",
@@ -44,7 +48,8 @@ enum class DisplayValueType(
         rangeDescription = "输入从-1.8e+308到1.8e+308的值",
         iconRes = R.drawable.type_float_24px,
         textColor = 0xFFFFFF00.toInt(),
-        nativeId = 5
+        nativeId = 5,
+        memorySize = 8,
     ),
     WORD(
         code = "W",
@@ -52,7 +57,8 @@ enum class DisplayValueType(
         rangeDescription = "输入从-32,768到65,535的值",
         iconRes = R.drawable.type_integer_24px,
         textColor = 0xFF00CED1.toInt(),
-        nativeId = 1
+        nativeId = 1,
+        memorySize = 2,
     ),
     BYTE(
         code = "B",
@@ -60,7 +66,8 @@ enum class DisplayValueType(
         rangeDescription = "输入从-128到255的值",
         iconRes = R.drawable.type_integer_24px,
         textColor = 0xFFDA70D6.toInt(),
-        nativeId = 0
+        nativeId = 0,
+        memorySize = 1,
     ),
     QWORD(
         code = "Q",
@@ -68,7 +75,8 @@ enum class DisplayValueType(
         rangeDescription = "输入从-9,223,372,036,854,775,808到18,446,744,073,709,551,615的值",
         iconRes = R.drawable.type_integer_24px,
         textColor = 0xFF00BFFF.toInt(),
-        nativeId = 3
+        nativeId = 3,
+        memorySize = 8,
     ),
     XOR(
         code = "X",
@@ -76,7 +84,8 @@ enum class DisplayValueType(
         rangeDescription = "输入从-2,147,483,648到4,294,967,295的值",
         iconRes = R.drawable.type_xor_24px,
         textColor = 0xFF9370DB.toInt(),
-        nativeId = 7
+        nativeId = 7,
+        memorySize = 4,
     ),
     UTF_8(
         code = "UTF-8",
@@ -84,7 +93,8 @@ enum class DisplayValueType(
         rangeDescription = "输入UTF-8编码的文本",
         iconRes = R.drawable.type_text_24px,
         textColor = Color.WHITE,
-        nativeId = 100
+        nativeId = 100,
+        memorySize = Long.MIN_VALUE
     ),
     UTF_16LE(
         code = "UTF-16LE",
@@ -92,7 +102,8 @@ enum class DisplayValueType(
         rangeDescription = "输入UTF-16LE编码的文本",
         iconRes = R.drawable.type_text_24px,
         textColor = Color.WHITE,
-        nativeId = 101
+        nativeId = 101,
+        memorySize = Long.MIN_VALUE
     ),
     HEX(
         code = "HEX",
@@ -100,7 +111,8 @@ enum class DisplayValueType(
         rangeDescription = "输入十六进制值",
         iconRes = R.drawable.type_hex_24px,
         textColor = Color.WHITE,
-        nativeId = 102
+        nativeId = 102,
+        memorySize = Long.MIN_VALUE
     ),
     HEX_MIXED(
         code = "HEX_MIXED",
@@ -108,7 +120,8 @@ enum class DisplayValueType(
         rangeDescription = "输入十六进制或文本值",
         iconRes = R.drawable.type_mixed_24px,
         textColor = Color.WHITE,
-        nativeId = 103
+        nativeId = 103,
+        memorySize = Long.MIN_VALUE
     ),
     ARM(
         code = "ARM",
@@ -116,7 +129,8 @@ enum class DisplayValueType(
         rangeDescription = "输入ARM指令",
         iconRes = R.drawable.type_code_24px,
         textColor = Color.WHITE,
-        nativeId = 104
+        nativeId = 104,
+        memorySize = Long.MIN_VALUE
     ),
     ARM64(
         code = "ARM64",
@@ -124,7 +138,8 @@ enum class DisplayValueType(
         rangeDescription = "输入ARM64指令",
         iconRes = R.drawable.type_code_24px,
         textColor = Color.WHITE,
-        nativeId = 105
+        nativeId = 105,
+        memorySize = Long.MIN_VALUE
     );
 
     companion object {

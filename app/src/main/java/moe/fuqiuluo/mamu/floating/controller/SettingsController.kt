@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.util.Log
 import android.view.View
-import com.google.android.material.slider.Slider
 import com.tencent.mmkv.MMKV
 import kotlinx.coroutines.*
 import moe.fuqiuluo.mamu.R
@@ -35,8 +34,8 @@ import moe.fuqiuluo.mamu.floating.ext.selectedMemoryRanges
 import moe.fuqiuluo.mamu.floating.ext.skipMemoryOption
 import moe.fuqiuluo.mamu.floating.ext.tabSwitchAnimation
 import moe.fuqiuluo.mamu.floating.ext.topMostLayer
-import moe.fuqiuluo.mamu.floating.model.DisplayProcessInfo
-import moe.fuqiuluo.mamu.floating.model.MemoryRange
+import moe.fuqiuluo.mamu.floating.data.model.DisplayProcessInfo
+import moe.fuqiuluo.mamu.floating.data.model.MemoryRange
 import moe.fuqiuluo.mamu.utils.ApplicationUtils
 import moe.fuqiuluo.mamu.utils.RootConfigManager
 import moe.fuqiuluo.mamu.utils.RootShellExecutor

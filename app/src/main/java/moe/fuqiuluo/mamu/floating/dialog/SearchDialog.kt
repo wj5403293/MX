@@ -25,12 +25,11 @@ import moe.fuqiuluo.mamu.driver.SearchProgressCallback
 import moe.fuqiuluo.mamu.driver.WuwaDriver
 import moe.fuqiuluo.mamu.floating.ext.floatingOpacity
 import moe.fuqiuluo.mamu.floating.ext.keyboardType
-import moe.fuqiuluo.mamu.floating.ext.memoryAccessMode
 import moe.fuqiuluo.mamu.floating.ext.selectedMemoryRanges
 import moe.fuqiuluo.mamu.floating.ext.divideToSimpleMemoryRange
 import moe.fuqiuluo.mamu.floating.ext.formatElapsedTime
-import moe.fuqiuluo.mamu.floating.model.DisplayMemRegionEntry
-import moe.fuqiuluo.mamu.floating.model.DisplayValueType
+import moe.fuqiuluo.mamu.floating.data.model.DisplayMemRegionEntry
+import moe.fuqiuluo.mamu.floating.data.model.DisplayValueType
 import moe.fuqiuluo.mamu.widget.BuiltinKeyboard
 import moe.fuqiuluo.mamu.widget.NotificationOverlay
 import moe.fuqiuluo.mamu.widget.simpleSingleChoiceDialog

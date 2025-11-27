@@ -1,6 +1,6 @@
 package moe.fuqiuluo.mamu.driver
 
-import moe.fuqiuluo.mamu.floating.model.DisplayValueType
+import moe.fuqiuluo.mamu.floating.data.model.DisplayValueType
 
 interface SearchResultItem {
     val nativePosition: Long // 原始索引，目的是方便

@@ -5,9 +5,9 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import moe.fuqiuluo.mamu.R
-import moe.fuqiuluo.mamu.data.model.SavedAddress
+import moe.fuqiuluo.mamu.floating.data.model.SavedAddress
 import moe.fuqiuluo.mamu.databinding.ItemSavedAddressBinding
-import moe.fuqiuluo.mamu.floating.model.DisplayValueType
+import moe.fuqiuluo.mamu.floating.data.model.DisplayValueType
 
 class SavedAddressAdapter(
     private val onItemClick: (SavedAddress, Int) -> Unit = { _, _ -> },
@@ -128,23 +128,20 @@ class SavedAddressAdapter(
             binding.freezeButton.apply {
                 if (address.isFrozen) {
                     setIconResource(R.drawable.icon_play_arrow_24px)
-                    setIconTintResource(R.color.floating_primary)
                 } else {
                     setIconResource(R.drawable.icon_pause_24px)
-                    setIconTintResource(R.color.floating_text_secondary)
                 }
 
                 setOnClickListener {
                     val newFrozenState = !address.isFrozen
-                    onFreezeToggle(address, newFrozenState)
+                    address.isFrozen = newFrozenState
                     // 立即更新UI
                     if (newFrozenState) {
                         setIconResource(R.drawable.icon_play_arrow_24px)
-                        setIconTintResource(R.color.floating_primary)
                     } else {
                         setIconResource(R.drawable.icon_pause_24px)
-                        setIconTintResource(R.color.floating_text_secondary)
                     }
+                    onFreezeToggle(address, newFrozenState)
                 }
             }
 
