@@ -42,11 +42,11 @@
     <ListView
         android:id="@+id/option_list"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:choiceMode="singleChoice"
         android:divider="#2F2F2F"
         android:dividerHeight="1dp"
-        android:maxHeight="400dp"
         android:scrollbars="vertical" />
 
     <!-- 分隔线 -->
