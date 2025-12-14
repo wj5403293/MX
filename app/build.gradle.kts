@@ -79,6 +79,11 @@ dependencies {
     // libsu - Root Shell library by topjohnwu (Magisk author)
     val libsuVersion = "6.0.0"
     implementation("com.github.topjohnwu.libsu:core:$libsuVersion")
+    implementation("com.github.topjohnwu.libsu:service:$libsuVersion")
+    implementation("com.github.topjohnwu.libsu:nio:$libsuVersion")
+
+    // kotlin-csv for CSV file handling
+    implementation("com.jsoizo:kotlin-csv-jvm:1.10.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

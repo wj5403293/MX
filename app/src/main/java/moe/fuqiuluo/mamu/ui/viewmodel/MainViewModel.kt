@@ -9,8 +9,8 @@ import kotlinx.coroutines.launch
 import moe.fuqiuluo.mamu.data.model.DriverInfo
 import moe.fuqiuluo.mamu.data.model.SeLinuxStatus
 import moe.fuqiuluo.mamu.data.model.SystemInfo
-import moe.fuqiuluo.mamu.data.local.DriverDataSource
-import moe.fuqiuluo.mamu.data.local.SystemDataSource
+import moe.fuqiuluo.mamu.data.local.DriverDataRepository
+import moe.fuqiuluo.mamu.data.local.SystemDataRepository
 import moe.fuqiuluo.mamu.floating.FloatingWindowStateManager
 
 data class MainUiState(
@@ -24,8 +24,8 @@ data class MainUiState(
 )
 
 class MainViewModel(
-    private val systemDataSource: SystemDataSource = SystemDataSource(),
-    private val driverDataSource: DriverDataSource = DriverDataSource()
+    private val systemDataSource: SystemDataRepository = SystemDataRepository(),
+    private val driverDataSource: DriverDataRepository = DriverDataRepository()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainUiState())

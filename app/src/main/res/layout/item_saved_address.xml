@@ -80,17 +80,36 @@
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/value_text"
             style="@style/FloatingText.Body"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="@dimen/floating_spacing_md"
-            android:layout_marginEnd="@dimen/floating_spacing_sm"
             android:ellipsize="end"
             android:maxLines="1"
             android:text="0"
             app:layout_constraintBottom_toBottomOf="@id/address_text"
+            app:layout_constraintHorizontal_bias="0"
+            app:layout_constraintHorizontal_chainStyle="packed"
+            app:layout_constraintStart_toEndOf="@id/address_text"
+            app:layout_constraintTop_toTopOf="@id/address_text"
+            app:layout_constraintEnd_toStartOf="@id/backup_value_text" />
+
+        <!-- 备份值（旧值） -->
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/backup_value_text"
+            style="@style/FloatingText.Body"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/floating_spacing_xs"
+            android:layout_marginEnd="@dimen/floating_spacing_sm"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#88FFFFFF"
+            android:textSize="11sp"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="@id/address_text"
             app:layout_constraintEnd_toStartOf="@id/info_container"
             app:layout_constraintHorizontal_bias="0"
-            app:layout_constraintStart_toEndOf="@id/address_text"
+            app:layout_constraintStart_toEndOf="@id/value_text"
             app:layout_constraintTop_toTopOf="@id/address_text" />
 
         <!-- 类型+范围信息 -->

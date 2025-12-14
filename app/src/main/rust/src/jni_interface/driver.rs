@@ -5,8 +5,8 @@ use crate::ext::jni::{JniResult, JniResultExt};
 use crate::wuwa::{WuWaDriver, WuwaMemRegionEntry};
 use anyhow::anyhow;
 use jni::JNIEnv;
-use jni::objects::{JByteArray, JClass, JIntArray, JObject, JObjectArray};
-use jni::sys::{JNI_FALSE, JNI_TRUE, jboolean, jint, jlong, jsize};
+use jni::objects::{JByteArray, JClass, JIntArray, JLongArray, JObject, JObjectArray};
+use jni::sys::{JNI_FALSE, JNI_TRUE, jboolean, jint, jlong, jsize, jlongArray, jintArray, jobjectArray};
 use jni_macro::jni_method;
 use log::{debug, error, info, log_enabled, Level};
 use nix::libc::close;
@@ -413,6 +413,80 @@ pub fn jni_read_memory<'l>(
     .or_throw(&mut env)
 }
 
+#[jni_method(80, "moe/fuqiuluo/mamu/driver/WuwaDriver", "nativeBatchReadMemory", "([J[I)[[B")]
+pub fn jni_batch_read_memory<'l>(
+    mut env: JNIEnv<'l>,
+    _obj: JObject,
+    addrs: JLongArray,
+    sizes: JIntArray,
+) -> jobjectArray {
+    (|| -> JniResult<jobjectArray> {
+        let addr_len = env.get_array_length(&addrs)
+            .map_err(|e| anyhow!("Failed to get address array length: {}", e))? as usize;
+        let size_len = env.get_array_length(&sizes)
+            .map_err(|e| anyhow!("Failed to get size array length: {}", e))? as usize;
+
+        if addr_len != size_len {
+            return Err(anyhow!("Address and size arrays must have the same length: {} vs {}", addr_len, size_len));
+        }
+
+        if addr_len == 0 {
+            // Return empty 2D byte array
+            let byte_array_class = env.find_class("[B")?;
+            let result = env.new_object_array(0, byte_array_class, JObject::null())?;
+            return Ok(result.into_raw());
+        }
+
+        // Get addresses and sizes from Java arrays
+        let mut addresses = vec![0i64; addr_len];
+        let mut read_sizes = vec![0i32; size_len];
+
+        env.get_long_array_region(&addrs, 0, &mut addresses)
+            .map_err(|e| anyhow!("Failed to get address array region: {}", e))?;
+        env.get_int_array_region(&sizes, 0, &mut read_sizes)
+            .map_err(|e| anyhow!("Failed to get size array region: {}", e))?;
+
+        let manager = DRIVER_MANAGER.read()
+            .map_err(|_| anyhow!("Failed to acquire DriverManager read lock"))?;
+
+        if !manager.is_process_bound() {
+            return Err(anyhow!("No process is bound. Please bind a process first."));
+        }
+
+        // Create result 2D byte array
+        let byte_array_class = env.find_class("[B")?;
+        let result_array = env.new_object_array(addr_len as jsize, byte_array_class, JObject::null())?;
+
+        // Read memory for each address
+        for i in 0..addr_len {
+            let addr = addresses[i] as u64;
+            let size = read_sizes[i] as usize;
+
+            if size == 0 {
+                // Set null for zero-size reads
+                continue;
+            }
+
+            let mut buffer = vec![0u8; size];
+            match manager.read_memory_unified(addr, &mut buffer, None) {
+                Ok(_) => {
+                    let byte_array = env.byte_array_from_slice(&buffer)
+                        .map_err(|e| anyhow!("Failed to create byte array for index {}: {}", i, e))?;
+                    env.set_object_array_element(&result_array, i as jsize, byte_array)
+                        .map_err(|e| anyhow!("Failed to set array element at index {}: {}", i, e))?;
+                }
+                Err(e) => {
+                    // On read failure, leave the element as null
+                    debug!("Failed to read memory at 0x{:x} (index {}): {}", addr, i, e);
+                }
+            }
+        }
+
+        Ok(result_array.into_raw())
+    })()
+        .or_throw(&mut env)
+}
+
 #[jni_method(80, "moe/fuqiuluo/mamu/driver/WuwaDriver", "nativeWriteMemory", "(J[B)Z")]
 pub fn jni_write_memory(
     mut env: JNIEnv,
@@ -450,4 +524,94 @@ pub fn jni_write_memory(
         Ok(JNI_TRUE)
     })()
     .or_throw(&mut env)
+}
+
+#[jni_method(80, "moe/fuqiuluo/mamu/driver/WuwaDriver", "nativeBatchWriteMemory", "([J[[B)[Z")]
+pub fn jni_batch_write_memory<'l>(
+    mut env: JNIEnv<'l>,
+    _obj: JObject,
+    addrs: JLongArray,
+    data_array: JObjectArray<'l>,
+) -> JObject<'l> {
+    (|| -> JniResult<JObject<'l>> {
+        let addr_len = env.get_array_length(&addrs)
+            .map_err(|e| anyhow!("Failed to get address array length: {}", e))? as usize;
+        let data_len = env.get_array_length(&data_array)
+            .map_err(|e| anyhow!("Failed to get data array length: {}", e))? as usize;
+
+        if addr_len != data_len {
+            return Err(anyhow!("Address and data arrays must have the same length: {} vs {}", addr_len, data_len));
+        }
+
+        if addr_len == 0 {
+            // Return empty boolean array
+            let result = env.new_boolean_array(0)?;
+            return Ok(result.into());
+        }
+
+        // Get addresses from Java array
+        let mut addresses = vec![0i64; addr_len];
+        env.get_long_array_region(&addrs, 0, &mut addresses)
+            .map_err(|e| anyhow!("Failed to get address array region: {}", e))?;
+
+        let manager = DRIVER_MANAGER.read()
+            .map_err(|_| anyhow!("Failed to acquire DriverManager read lock"))?;
+
+        if !manager.is_process_bound() {
+            return Err(anyhow!("No process is bound. Please bind a process first."));
+        }
+
+        // Create result boolean array
+        let mut results = vec![0u8; addr_len];
+
+        // Write memory for each address
+        for i in 0..addr_len {
+            let addr = addresses[i] as u64;
+
+            // Get the byte array at index i
+            let data_obj = env.get_object_array_element(&data_array, i as jsize)
+                .map_err(|e| anyhow!("Failed to get data array element at index {}: {}", i, e))?;
+
+            if data_obj.is_null() {
+                // Skip null entries
+                continue;
+            }
+
+            let data: JByteArray = data_obj.into();
+            let len = env.get_array_length(&data)
+                .map_err(|e| anyhow!("Failed to get byte array length at index {}: {}", i, e))? as usize;
+
+            if len == 0 {
+                // Skip empty arrays
+                continue;
+            }
+
+            let mut buffer = vec![0i8; len];
+            env.get_byte_array_region(&data, 0, &mut buffer)
+                .map_err(|e| anyhow!("Failed to get byte array region at index {}: {}", i, e))?;
+
+            let bytes: &[u8] = unsafe { std::slice::from_raw_parts(buffer.as_ptr() as *const u8, len) };
+
+            match manager.write_memory_unified(addr, bytes) {
+                Ok(_) => {
+                    results[i] = 1; // true
+                    if log_enabled!(Level::Debug) {
+                        debug!("{}: 0x{:x}, size={}, index={}", s!("批量写入成功"), addr, len, i);
+                    }
+                }
+                Err(e) => {
+                    results[i] = 0; // false
+                    debug!("Failed to write memory at 0x{:x} (index {}): {}", addr, i, e);
+                }
+            }
+        }
+
+        // Convert results to boolean array
+        let result_array = env.new_boolean_array(addr_len as jsize)?;
+        env.set_boolean_array_region(&result_array, 0, &results)
+            .map_err(|e| anyhow!("Failed to set boolean array region: {}", e))?;
+
+        Ok(result_array.into())
+    })()
+        .or_throw(&mut env)
 }

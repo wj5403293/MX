@@ -1,4 +1,4 @@
-package moe.fuqiuluo.mamu.floating.service
+package moe.fuqiuluo.mamu.service
 
 import android.annotation.SuppressLint
 import android.app.Notification
@@ -24,6 +24,7 @@ import android.view.animation.AlphaAnimation
 import android.widget.*
 import androidx.core.view.isVisible
 import com.tencent.mmkv.MMKV
+import moe.fuqiuluo.mamu.MainActivity
 import moe.fuqiuluo.mamu.R
 import moe.fuqiuluo.mamu.floating.data.model.SavedAddress
 import moe.fuqiuluo.mamu.databinding.FloatingFullscreenLayoutBinding
@@ -468,7 +469,7 @@ class FloatingWindowService : Service(), ProcessDeathMonitor.Callback {
     }
 
     private fun createForegroundNotification(): Notification {
-        val intent = Intent(this, moe.fuqiuluo.mamu.MainActivity::class.java).apply {
+        val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         val pendingIntent = PendingIntent.getActivity(

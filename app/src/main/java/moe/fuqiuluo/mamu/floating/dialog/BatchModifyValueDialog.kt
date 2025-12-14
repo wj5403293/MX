@@ -15,18 +15,59 @@ import moe.fuqiuluo.mamu.driver.SearchResultItem
 import moe.fuqiuluo.mamu.data.settings.floatingOpacity
 import moe.fuqiuluo.mamu.data.settings.keyboardType
 import moe.fuqiuluo.mamu.floating.data.model.DisplayValueType
+import moe.fuqiuluo.mamu.floating.data.model.SavedAddress
 import moe.fuqiuluo.mamu.widget.BuiltinKeyboard
 import moe.fuqiuluo.mamu.widget.NotificationOverlay
 import moe.fuqiuluo.mamu.widget.simpleSingleChoiceDialog
 import kotlin.math.max
 
-class BatchModifyValueDialog(
+class BatchModifyValueDialog private constructor(
     context: Context,
     private val notification: NotificationOverlay,
     private val clipboardManager: ClipboardManager,
-    private val searchResultItems: List<SearchResultItem>,
-    private val onConfirm: ((items: List<SearchResultItem>, newValue: String, valueType: DisplayValueType) -> Unit)? = null
+    private val searchResultItems: List<SearchResultItem>?,
+    private val savedAddresses: List<SavedAddress>?,
+    private val onConfirmSearchResult: ((items: List<SearchResultItem>, newValue: String, valueType: DisplayValueType) -> Unit)?,
+    private val onConfirmSavedAddress: ((items: List<SavedAddress>, newValue: String, valueType: DisplayValueType) -> Unit)?
 ) : BaseDialog(context) {
+
+    // 用于搜索结果的构造函数
+    constructor(
+        context: Context,
+        notification: NotificationOverlay,
+        clipboardManager: ClipboardManager,
+        searchResultItems: List<SearchResultItem>,
+        onConfirm: ((items: List<SearchResultItem>, newValue: String, valueType: DisplayValueType) -> Unit)?
+    ) : this(context, notification, clipboardManager, searchResultItems, null, onConfirm, null)
+
+    // 用于保存地址的构造函数
+    constructor(
+        context: Context,
+        clipboardManager: ClipboardManager,
+        notification: NotificationOverlay,
+        savedAddresses: List<SavedAddress>,
+        onConfirm: ((items: List<SavedAddress>, newValue: String, valueType: DisplayValueType) -> Unit)?
+    ) : this(context, notification, clipboardManager, null, savedAddresses, null, onConfirm)
+
+    private val itemCount: Int
+        get() = searchResultItems?.size ?: savedAddresses?.size ?: 0
+
+    private val defaultValueType: DisplayValueType
+        get() {
+            // 从搜索结果获取
+            searchResultItems?.firstOrNull()?.let { firstItem ->
+                return when (firstItem) {
+                    is ExactSearchResultItem -> firstItem.displayValueType ?: DisplayValueType.DWORD
+                    is FuzzySearchResultItem -> firstItem.displayValueType ?: DisplayValueType.DWORD
+                    else -> DisplayValueType.DWORD
+                }
+            }
+            // 从保存地址获取
+            savedAddresses?.firstOrNull()?.let { firstItem ->
+                return firstItem.displayValueType ?: DisplayValueType.DWORD
+            }
+            return DisplayValueType.DWORD
+        }
 
     @SuppressLint("ClickableViewAccessibility", "SetTextI18n")
     override fun setupDialog() {
@@ -58,19 +99,15 @@ class BatchModifyValueDialog(
         }
 
         // 设置标题：批量修改 N 个地址
-        binding.titleText.text = "批量修改 ${searchResultItems.size} 个地址"
+        binding.titleText.text = "批量修改 $itemCount 个地址"
 
         // 初始化值类型
         val allValueTypes = DisplayValueType.entries.toTypedArray()
         val valueTypeNames = allValueTypes.map { it.displayName }.toTypedArray()
         val valueTypeColors = allValueTypes.map { it.textColor }.toTypedArray()
 
-        // 默认使用第一个选中项的类型，如果没有则使用 DWORD
-        var currentValueType = when (val firstItem = searchResultItems.firstOrNull()) {
-            is ExactSearchResultItem -> firstItem.displayValueType ?: DisplayValueType.DWORD
-            is FuzzySearchResultItem -> firstItem.displayValueType ?: DisplayValueType.DWORD
-            else -> DisplayValueType.DWORD
-        }
+        // 默认使用第一个选中项的类型
+        var currentValueType = defaultValueType
 
         fun updateSubtitleRange(type: DisplayValueType) {
             binding.subtitleRange.text = type.rangeDescription
@@ -178,7 +215,13 @@ class BatchModifyValueDialog(
                 return@setOnClickListener
             }
 
-            onConfirm?.invoke(searchResultItems, newValue, currentValueType)
+            // 根据数据类型调用对应的回调
+            searchResultItems?.let {
+                onConfirmSearchResult?.invoke(it, newValue, currentValueType)
+            }
+            savedAddresses?.let {
+                onConfirmSavedAddress?.invoke(it, newValue, currentValueType)
+            }
             dialog.dismiss()
         }
     }

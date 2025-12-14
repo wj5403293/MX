@@ -2,11 +2,13 @@ package moe.fuqiuluo.mamu.floating.adapter
 
 import android.annotation.SuppressLint
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import moe.fuqiuluo.mamu.R
 import moe.fuqiuluo.mamu.floating.data.model.SavedAddress
 import moe.fuqiuluo.mamu.databinding.ItemSavedAddressBinding
+import moe.fuqiuluo.mamu.floating.data.local.MemoryBackupManager
 import moe.fuqiuluo.mamu.floating.data.model.DisplayValueType
 
 class SavedAddressAdapter(
@@ -116,6 +118,15 @@ class SavedAddressAdapter(
 
             // 设置值
             binding.valueText.text = address.value.ifBlank { "空空如也" }
+
+            // 备份值（旧值）
+            val backup = MemoryBackupManager.getBackup(address.address)
+            if (backup != null) {
+                binding.backupValueText.text = "(${backup.originalValue})"
+                binding.backupValueText.visibility = View.VISIBLE
+            } else {
+                binding.backupValueText.visibility = View.GONE
+            }
 
             // 设置数据类型和范围
             val valueType = address.displayValueType ?: DisplayValueType.DWORD

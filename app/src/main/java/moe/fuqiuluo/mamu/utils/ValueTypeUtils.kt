@@ -1,6 +1,4 @@
-@file:OptIn(ExperimentalUnsignedTypes::class)
-
-package moe.fuqiuluo.mamu.floating.utils
+package moe.fuqiuluo.mamu.utils
 
 import moe.fuqiuluo.mamu.floating.data.model.DisplayValueType
 import java.nio.ByteBuffer
@@ -134,6 +132,73 @@ object ValueTypeUtils {
 
             DisplayValueType.ARM, DisplayValueType.ARM64 -> {
                 TODO("ARM64")
+            }
+        }
+    }
+
+    /**
+     * Convert byte array to display value string based on value type
+     * @param bytes Byte array in little-endian format
+     * @param valueType Target value type for display
+     * @return String representation of the value
+     */
+    fun bytesToDisplayValue(bytes: ByteArray, valueType: DisplayValueType): String {
+        if (bytes.isEmpty()) return ""
+
+        val buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
+
+        return when (valueType) {
+            DisplayValueType.BYTE -> {
+                if (bytes.isNotEmpty()) {
+                    bytes[0].toInt().and(0xFF).toString()
+                } else ""
+            }
+
+            DisplayValueType.WORD -> {
+                if (bytes.size >= 2) {
+                    buffer.short.toInt().and(0xFFFF).toString()
+                } else ""
+            }
+
+            DisplayValueType.DWORD, DisplayValueType.XOR -> {
+                if (bytes.size >= 4) {
+                    buffer.int.toString()
+                } else ""
+            }
+
+            DisplayValueType.QWORD -> {
+                if (bytes.size >= 8) {
+                    buffer.long.toString()
+                } else ""
+            }
+
+            DisplayValueType.FLOAT -> {
+                if (bytes.size >= 4) {
+                    buffer.float.toString()
+                } else ""
+            }
+
+            DisplayValueType.DOUBLE -> {
+                if (bytes.size >= 8) {
+                    buffer.double.toString()
+                } else ""
+            }
+
+            DisplayValueType.UTF_8 -> {
+                String(bytes, Charsets.UTF_8)
+            }
+
+            DisplayValueType.UTF_16LE -> {
+                String(bytes, Charsets.UTF_16LE)
+            }
+
+            DisplayValueType.HEX -> {
+                bytes.joinToString("") { "%02X".format(it) }
+            }
+
+            DisplayValueType.AUTO, DisplayValueType.HEX_MIXED,
+            DisplayValueType.ARM, DisplayValueType.ARM64 -> {
+                bytes.joinToString("") { "%02X".format(it) }
             }
         }
     }

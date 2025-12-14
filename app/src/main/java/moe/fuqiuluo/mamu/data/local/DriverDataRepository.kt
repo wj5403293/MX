@@ -10,7 +10,7 @@ import moe.fuqiuluo.mamu.driver.WuwaDriver
  * 驱动信息数据源
  * 负责查询驱动相关信息
  */
-class DriverDataSource {
+class DriverDataRepository {
 
     /**
      * 获取驱动信息

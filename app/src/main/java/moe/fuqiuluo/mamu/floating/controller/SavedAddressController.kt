@@ -1,6 +1,7 @@
 package moe.fuqiuluo.mamu.floating.controller
 
 import android.annotation.SuppressLint
+import android.content.ClipboardManager
 import android.content.Context
 import android.view.View
 import android.widget.TextView
@@ -9,10 +10,19 @@ import kotlinx.coroutines.*
 import moe.fuqiuluo.mamu.R
 import moe.fuqiuluo.mamu.floating.data.model.SavedAddress
 import moe.fuqiuluo.mamu.databinding.FloatingSavedAddressesLayoutBinding
+import moe.fuqiuluo.mamu.driver.WuwaDriver
 import moe.fuqiuluo.mamu.floating.adapter.SavedAddressAdapter
+import moe.fuqiuluo.mamu.floating.data.local.MemoryBackupManager
+import moe.fuqiuluo.mamu.floating.data.local.SavedAddressRepository
 import moe.fuqiuluo.mamu.floating.data.model.DisplayProcessInfo
+import moe.fuqiuluo.mamu.floating.data.model.DisplayValueType
+import moe.fuqiuluo.mamu.floating.dialog.BatchModifyValueDialog
+import moe.fuqiuluo.mamu.floating.dialog.RemoveOptionsDialog
+import moe.fuqiuluo.mamu.utils.ValueTypeUtils
 import moe.fuqiuluo.mamu.utils.ByteFormatUtils.formatBytes
 import moe.fuqiuluo.mamu.widget.NotificationOverlay
+import moe.fuqiuluo.mamu.widget.ToolbarAction
+import moe.fuqiuluo.mamu.widget.simpleSingleChoiceDialog
 
 class SavedAddressController(
     context: Context,
@@ -72,7 +82,111 @@ class SavedAddressController(
     }
 
     private fun setupToolbar() {
-        // TODO: 添加工具栏操作
+        val toolbar = binding.savedToolbar
+
+        val actions = listOf(
+            ToolbarAction(
+                id = 1,
+                icon = R.drawable.select_all_24px,
+                label = "全选"
+            ) {
+                adapter.selectAll()
+            },
+            ToolbarAction(
+                id = 2,
+                icon = R.drawable.flip_to_front_24px,
+                label = "反选"
+            ) {
+                adapter.invertSelection()
+            },
+            ToolbarAction(
+                id = 3,
+                icon = R.drawable.icon_edit_24px,
+                label = "编辑所选值"
+            ) {
+                showBatchModifyDialog()
+            },
+            ToolbarAction(
+                id = 4,
+                icon = R.drawable.icon_delete_24px,
+                label = "删除"
+            ) {
+                showRemoveDialog()
+            },
+            ToolbarAction(
+                id = 5,
+                icon = R.drawable.icon_save_24px,
+                label = "保存地址到文件"
+            ) {
+                exportAddresses()
+            },
+            ToolbarAction(
+                id = 6,
+                icon = R.drawable.undo_24px,
+                label = "恢复"
+            ) {
+                restoreSelectedValues()
+            },
+            ToolbarAction(
+                id = 7,
+                icon = R.drawable.icon_list_24px,
+                label = "从文件载入地址"
+            ) {
+                showLoadAddressesDialog()
+            },
+            ToolbarAction(
+                id = 8,
+                icon = R.drawable.search_check_24px,
+                label = "选定为搜索结果"
+            ) {
+                setSelectedAsSearchResults()
+            },
+            ToolbarAction(
+                id = 9,
+                icon = R.drawable.type_xor_24px,
+                label = "计算偏移异或"
+            ) {
+                calculateOffsetXor()
+            },
+            ToolbarAction(
+                id = 10,
+                icon = R.drawable.type_auto_24px,
+                label = "更改所选类型"
+            ) {
+                showChangeTypeDialog()
+            },
+            ToolbarAction(
+                id = 11,
+                icon = R.drawable.deselect_24px,
+                label = "清除选择"
+            ) {
+                adapter.deselectAll()
+            },
+            ToolbarAction(
+                id = 12,
+                icon = R.drawable.calculate_24px,
+                label = "偏移量计算器"
+            ) {
+                showOffsetCalculator()
+            },
+        )
+
+        toolbar.setActions(actions)
+        val options = actions.map { it.label }.toTypedArray()
+        val icons = actions.map { it.icon }.toTypedArray()
+        toolbar.setOverflowCallback {
+            context.simpleSingleChoiceDialog(
+                showTitle = false,
+                options = options,
+                icons = icons,
+                showRadioButton = false,
+                onSingleChoice = { which ->
+                    if (which < actions.size) {
+                        actions[which].onClick.invoke()
+                    }
+                }
+            )
+        }
     }
 
     private fun setupRecyclerView() {
@@ -163,7 +277,7 @@ class SavedAddressController(
     }
 
     /**
-     * 刷新所有地址的值
+     * 刷新所有地址的值（使用批量读取提高效率）
      */
     private fun refreshAddresses() {
         if (savedAddresses.isEmpty()) {
@@ -171,8 +285,490 @@ class SavedAddressController(
             return
         }
 
-        // TODO: 从内存读取最新值并更新
-        notification.showWarning("刷新功能待实现")
+        if (!WuwaDriver.isProcessBound) {
+            notification.showError("未绑定进程")
+            return
+        }
+
+        coroutineScope.launch {
+            var successCount = 0
+            var failCount = 0
+
+            val addrs = mutableListOf<Long>()
+            val sizes = mutableListOf<Int>()
+
+            for (address in savedAddresses) {
+                addrs.add(address.address)
+                val valueType = address.displayValueType ?: DisplayValueType.DWORD
+                sizes.add(valueType.memorySize.toInt())
+            }
+
+            val results = withContext(Dispatchers.IO) {
+                WuwaDriver.batchReadMemory(addrs.toLongArray(), sizes.toIntArray())
+            }
+
+            // 更新 UI
+            results.forEachIndexed { index, bytes ->
+                val address = savedAddresses[index]
+                val valueType = address.displayValueType ?: DisplayValueType.DWORD
+
+                if (bytes != null) {
+                    try {
+                        val newValue = ValueTypeUtils.bytesToDisplayValue(bytes, valueType)
+                        savedAddresses[index] = address.copy(value = newValue)
+                        adapter.updateAddress(savedAddresses[index])
+                        successCount++
+                    } catch (e: Exception) {
+                        failCount++
+                    }
+                } else {
+                    failCount++
+                }
+            }
+
+            if (failCount == 0) {
+                notification.showSuccess("已刷新 $successCount 个地址")
+            } else {
+                notification.showWarning("成功: $successCount, 失败: $failCount")
+            }
+        }
+    }
+
+    /**
+     * 显示批量修改对话框
+     */
+    private fun showBatchModifyDialog() {
+        val selectedItems = adapter.getSelectedItems()
+        if (selectedItems.isEmpty()) {
+            notification.showWarning("未选择任何项目")
+            return
+        }
+
+        if (!WuwaDriver.isProcessBound) {
+            notification.showError("未绑定进程")
+            return
+        }
+
+        val clipboardManager =
+            context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+
+        val dialog = BatchModifyValueDialog(
+            context = context,
+            notification = notification,
+            clipboardManager = clipboardManager,
+            savedAddresses = selectedItems,
+            onConfirm = { items, newValue, valueType ->
+                batchModifyValues(items, newValue, valueType)
+            }
+        )
+
+        dialog.show()
+    }
+
+    /**
+     * 批量修改值（使用批量写入接口提高效率）
+     */
+    private fun batchModifyValues(
+        items: List<SavedAddress>,
+        newValue: String,
+        valueType: DisplayValueType
+    ) {
+        coroutineScope.launch {
+            try {
+                val dataBytes = ValueTypeUtils.parseExprToBytes(newValue, valueType)
+
+                // 保存备份
+                items.forEach { item ->
+                    MemoryBackupManager.saveBackup(item.address, item.value, valueType)
+                }
+
+                // 准备批量写入参数
+                val addrs = items.map { it.address }.toLongArray()
+                val dataArray = Array(items.size) { dataBytes }
+
+                // 批量写入内存
+                val results = withContext(Dispatchers.IO) {
+                    WuwaDriver.batchWriteMemory(addrs, dataArray)
+                }
+
+                // 统计结果并更新 UI
+                var successCount = 0
+                var failureCount = 0
+
+                results.forEachIndexed { index, success ->
+                    if (success) {
+                        val item = items[index]
+                        val addrIndex = savedAddresses.indexOfFirst { it.address == item.address }
+                        if (addrIndex >= 0) {
+                            savedAddresses[addrIndex] = item.copy(value = newValue)
+                            adapter.updateAddress(savedAddresses[addrIndex])
+                        }
+                        successCount++
+                    } else {
+                        failureCount++
+                    }
+                }
+
+                if (failureCount == 0) {
+                    notification.showSuccess("成功修改 $successCount 个地址")
+                } else {
+                    notification.showWarning("成功: $successCount, 失败: $failureCount")
+                }
+            } catch (e: IllegalArgumentException) {
+                notification.showError("值格式错误: ${e.message}")
+            } catch (e: Exception) {
+                notification.showError("批量修改失败: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * 显示删除对话框
+     */
+    private fun showRemoveDialog() {
+        val selectedCount = adapter.getSelectedItems().size
+        val totalCount = savedAddresses.size
+
+        if (totalCount == 0) {
+            notification.showWarning("没有可删除的地址")
+            return
+        }
+
+        val dialog = RemoveOptionsDialog(
+            context = context,
+            selectedCount = selectedCount
+        )
+
+        dialog.onRemoveAll = {
+            clearAll()
+            notification.showSuccess("已清空所有地址")
+        }
+
+        dialog.onRestoreAndRemove = {
+            restoreAndRemoveSelected()
+        }
+
+        dialog.onRemoveSelected = {
+            removeSelectedAddresses()
+        }
+
+        dialog.show()
+    }
+
+    /**
+     * 恢复并移除选中的地址
+     */
+    private fun restoreAndRemoveSelected() {
+        val selectedItems = adapter.getSelectedItems()
+        if (selectedItems.isEmpty()) {
+            notification.showWarning("未选择任何项目")
+            return
+        }
+
+        if (!WuwaDriver.isProcessBound) {
+            notification.showError("未绑定进程")
+            return
+        }
+
+        coroutineScope.launch {
+            var restoreCount = 0
+            var failCount = 0
+
+            withContext(Dispatchers.IO) {
+                selectedItems.forEach { item ->
+                    val backup = MemoryBackupManager.getBackup(item.address)
+                    if (backup != null) {
+                        try {
+                            val dataBytes = ValueTypeUtils.parseExprToBytes(
+                                backup.originalValue,
+                                backup.originalType
+                            )
+                            if (WuwaDriver.writeMemory(item.address, dataBytes)) {
+                                MemoryBackupManager.removeBackup(item.address)
+                                restoreCount++
+                            } else {
+                                failCount++
+                            }
+                        } catch (e: Exception) {
+                            failCount++
+                        }
+                    }
+                }
+            }
+
+            // 移除地址
+            selectedItems.forEach { item ->
+                savedAddresses.removeIf { it.address == item.address }
+            }
+            adapter.setAddresses(savedAddresses)
+            updateEmptyState()
+            updateAddressCountBadge()
+
+            if (failCount == 0) {
+                notification.showSuccess("已恢复并移除 $restoreCount 个地址")
+            } else {
+                notification.showWarning("恢复: $restoreCount, 失败: $failCount")
+            }
+        }
+    }
+
+    /**
+     * 移除选中的地址
+     */
+    private fun removeSelectedAddresses() {
+        val selectedItems = adapter.getSelectedItems()
+        if (selectedItems.isEmpty()) {
+            notification.showWarning("未选择任何项目")
+            return
+        }
+
+        selectedItems.forEach { item ->
+            savedAddresses.removeIf { it.address == item.address }
+        }
+        adapter.setAddresses(savedAddresses)
+        updateEmptyState()
+        updateAddressCountBadge()
+
+        notification.showSuccess("已移除 ${selectedItems.size} 个地址")
+    }
+
+    /**
+     * 导出地址到文件
+     */
+    private fun exportAddresses() {
+        if (savedAddresses.isEmpty()) {
+            notification.showWarning("没有可导出的地址")
+            return
+        }
+
+        coroutineScope.launch {
+            val success = withContext(Dispatchers.IO) {
+                SavedAddressRepository.saveAddresses(context, savedAddresses)
+            }
+
+            if (success) {
+                notification.showSuccess("已保存 ${savedAddresses.size} 个地址到文件")
+            } else {
+                notification.showError("保存失败")
+            }
+        }
+    }
+
+    /**
+     * 恢复选中地址的原始值
+     */
+    private fun restoreSelectedValues() {
+        val selectedItems = adapter.getSelectedItems()
+        if (selectedItems.isEmpty()) {
+            notification.showWarning("未选择任何项目")
+            return
+        }
+
+        if (!WuwaDriver.isProcessBound) {
+            notification.showError("未绑定进程")
+            return
+        }
+
+        coroutineScope.launch {
+            var restoreCount = 0
+            var noBackupCount = 0
+            var failCount = 0
+
+            withContext(Dispatchers.IO) {
+                selectedItems.forEach { item ->
+                    val backup = MemoryBackupManager.getBackup(item.address)
+                    if (backup != null) {
+                        try {
+                            val dataBytes = ValueTypeUtils.parseExprToBytes(
+                                backup.originalValue,
+                                backup.originalType
+                            )
+                            if (WuwaDriver.writeMemory(item.address, dataBytes)) {
+                                withContext(Dispatchers.Main) {
+                                    val index =
+                                        savedAddresses.indexOfFirst { it.address == item.address }
+                                    if (index >= 0) {
+                                        savedAddresses[index] =
+                                            item.copy(value = backup.originalValue)
+                                        adapter.updateAddress(savedAddresses[index])
+                                    }
+                                }
+                                MemoryBackupManager.removeBackup(item.address)
+                                restoreCount++
+                            } else {
+                                failCount++
+                            }
+                        } catch (e: Exception) {
+                            failCount++
+                        }
+                    } else {
+                        noBackupCount++
+                    }
+                }
+            }
+
+            when {
+                restoreCount > 0 && failCount == 0 && noBackupCount == 0 -> {
+                    notification.showSuccess("已恢复 $restoreCount 个地址")
+                }
+
+                noBackupCount > 0 -> {
+                    notification.showWarning("恢复: $restoreCount, 无备份: $noBackupCount")
+                }
+
+                else -> {
+                    notification.showWarning("恢复: $restoreCount, 失败: $failCount")
+                }
+            }
+        }
+    }
+
+    /**
+     * 显示载入地址对话框
+     */
+    private fun showLoadAddressesDialog() {
+        coroutineScope.launch {
+            val savedLists = withContext(Dispatchers.IO) {
+                SavedAddressRepository.getSavedListNames(context)
+            }
+
+            if (savedLists.isEmpty()) {
+                notification.showWarning("没有已保存的地址列表")
+                return@launch
+            }
+
+            context.simpleSingleChoiceDialog(
+                title = "选择地址列表",
+                options = savedLists.toTypedArray(),
+                showRadioButton = false,
+                onSingleChoice = { which ->
+                    loadAddressesFromFile(savedLists[which])
+                }
+            )
+        }
+    }
+
+    /**
+     * 从文件加载地址
+     */
+    private fun loadAddressesFromFile(fileName: String) {
+        coroutineScope.launch {
+            val loadedAddresses = withContext(Dispatchers.IO) {
+                SavedAddressRepository.loadAddresses(context, fileName)
+            }
+
+            if (loadedAddresses.isNotEmpty()) {
+                saveAddresses(loadedAddresses)
+                notification.showSuccess("已载入 ${loadedAddresses.size} 个地址")
+            } else {
+                notification.showError("载入失败或文件为空")
+            }
+        }
+    }
+
+    /**
+     * 将选中的地址设为搜索结果
+     */
+    private fun setSelectedAsSearchResults() {
+        val selectedItems = adapter.getSelectedItems()
+        if (selectedItems.isEmpty()) {
+            notification.showWarning("未选择任何项目")
+            return
+        }
+
+        // todo: 此功能需要与 SearchController 协作
+        notification.showWarning("选定为搜索结果功能需要与搜索页联动实现")
+    }
+
+    /**
+     * 计算选中地址的偏移异或
+     */
+    private fun calculateOffsetXor() {
+        val selectedItems = adapter.getSelectedItems()
+        if (selectedItems.size < 2) {
+            notification.showWarning("请至少选择 2 个地址")
+            return
+        }
+
+        // todo 计算所有选中地址之间的偏移量的异或
+//        val addresses = selectedItems.map { it.address }.sorted()
+//        val baseAddress = addresses.first()
+//
+//        val offsets = addresses.drop(1).map { it - baseAddress }
+//        val xorResult = offsets.fold(0L) { acc, offset -> acc xor offset }
+//
+//        val message = buildString {
+//            append("基址: ${String.format("%X", baseAddress)}\n")
+//            append("偏移量异或结果: ${String.format("%X", xorResult)}\n")
+//            append("偏移量列表:\n")
+//            offsets.forEachIndexed { index, offset ->
+//                append("  ${index + 1}. +${String.format("%X", offset)}\n")
+//            }
+//        }
+//
+//        notification.showSuccess("偏移异或: ${String.format("%X", xorResult)}")
+    }
+
+    /**
+     * 显示更改类型对话框
+     */
+    private fun showChangeTypeDialog() {
+        val selectedItems = adapter.getSelectedItems()
+        if (selectedItems.isEmpty()) {
+            notification.showWarning("未选择任何项目")
+            return
+        }
+
+        val allValueTypes = DisplayValueType.entries.filter {
+            it != DisplayValueType.AUTO &&
+                    it != DisplayValueType.HEX_MIXED &&
+                    it != DisplayValueType.ARM &&
+                    it != DisplayValueType.ARM64
+        }.toTypedArray()
+        val valueTypeNames = allValueTypes.map { it.displayName }.toTypedArray()
+        val valueTypeColors = allValueTypes.map { it.textColor }.toTypedArray()
+
+        context.simpleSingleChoiceDialog(
+            title = "选择新类型",
+            options = valueTypeNames,
+            textColors = valueTypeColors,
+            showRadioButton = false,
+            onSingleChoice = { which ->
+                val newType = allValueTypes[which]
+                changeSelectedAddressTypes(selectedItems, newType)
+            }
+        )
+    }
+
+    /**
+     * 更改选中地址的类型
+     */
+    private fun changeSelectedAddressTypes(items: List<SavedAddress>, newType: DisplayValueType) {
+        items.forEach { item ->
+            val index = savedAddresses.indexOfFirst { it.address == item.address }
+            if (index >= 0) {
+                savedAddresses[index] = item.copy(valueType = newType.nativeId)
+                adapter.updateAddress(savedAddresses[index])
+            }
+        }
+
+        notification.showSuccess("已更改 ${items.size} 个地址的类型为 ${newType.code}")
+    }
+
+    /**
+     * 显示偏移量计算器
+     */
+    private fun showOffsetCalculator() {
+        // todo 显示偏移量计算器
+//        val clipboardManager =
+//            context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+//
+//        val dialog = OffsetCalculatorDialog(
+//            context = context,
+//            notification = notification,
+//            clipboardManager = clipboardManager
+//        )
+//        dialog.show()
     }
 
     private fun updateEmptyState() {

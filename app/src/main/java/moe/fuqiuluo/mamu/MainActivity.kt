@@ -6,12 +6,15 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.lifecycleScope
 import com.tencent.mmkv.MMKV
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import moe.fuqiuluo.mamu.data.local.RootFileSystem
 import moe.fuqiuluo.mamu.data.settings.autoStartFloatingWindow
-import moe.fuqiuluo.mamu.floating.service.FloatingWindowService
+import moe.fuqiuluo.mamu.service.FloatingWindowService
 import moe.fuqiuluo.mamu.ui.screen.MainScreen
 import moe.fuqiuluo.mamu.ui.theme.MXTheme
-
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,8 +26,14 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // 检查是否需要自动启动悬浮窗
-        checkAutoStartFloatingWindow()
+        lifecycleScope.launch(Dispatchers.Main) {
+            RootFileSystem.connect(applicationContext)
+        }
+
+        lifecycleScope.launch(Dispatchers.Main) {
+            // 检查是否需要自动启动悬浮窗
+            checkAutoStartFloatingWindow()
+        }
     }
 
     private fun checkAutoStartFloatingWindow() {

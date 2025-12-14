@@ -13,7 +13,7 @@ import moe.fuqiuluo.mamu.utils.ShellResult
  * 系统信息数据源
  * 负责查询设备系统相关信息
  */
-class SystemDataSource {
+class SystemDataRepository {
 
     /**
      * 获取系统信息

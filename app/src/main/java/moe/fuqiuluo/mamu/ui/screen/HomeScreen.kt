@@ -25,7 +25,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import moe.fuqiuluo.mamu.data.model.DriverStatus
 import moe.fuqiuluo.mamu.data.model.SeLinuxMode
 import moe.fuqiuluo.mamu.data.model.SystemInfo
-import moe.fuqiuluo.mamu.floating.service.FloatingWindowService
+import moe.fuqiuluo.mamu.service.FloatingWindowService
 import moe.fuqiuluo.mamu.ui.tutorial.components.TutorialDialog
 import moe.fuqiuluo.mamu.ui.theme.MXTheme
 import moe.fuqiuluo.mamu.ui.tutorial.TutorialManager
