@@ -752,12 +752,7 @@ class SavedAddressController(
             return
         }
 
-        val allValueTypes = DisplayValueType.entries.filter {
-            it != DisplayValueType.AUTO &&
-                    it != DisplayValueType.HEX_MIXED &&
-                    it != DisplayValueType.ARM &&
-                    it != DisplayValueType.ARM64
-        }.toTypedArray()
+        val allValueTypes = DisplayValueType.entries.filter { !it.isDisabled }.toTypedArray()
         val valueTypeNames = allValueTypes.map { it.displayName }.toTypedArray()
         val valueTypeColors = allValueTypes.map { it.textColor }.toTypedArray()
 

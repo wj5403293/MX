@@ -84,7 +84,7 @@ class ModifyValueDialog(
         binding.titleText.text = context.getString(R.string.modify_dialog_title) + " $addressHex"
 
         // 初始化值类型
-        val allValueTypes = DisplayValueType.entries.toTypedArray()
+        val allValueTypes = DisplayValueType.entries.filter { !it.isDisabled }.toTypedArray()
         val valueTypeNames = allValueTypes.map { it.displayName }.toTypedArray()
         val valueTypeColors = allValueTypes.map { it.textColor }.toTypedArray()
 

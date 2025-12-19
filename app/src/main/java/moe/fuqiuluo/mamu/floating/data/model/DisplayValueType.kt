@@ -13,7 +13,8 @@ enum class DisplayValueType(
     val iconRes: Int,
     val textColor: Int,
     val nativeId: Int,
-    val memorySize: Long
+    val memorySize: Long,
+    val isDisabled: Boolean = false
 ) {
     AUTO(
         code = "A",
@@ -23,6 +24,7 @@ enum class DisplayValueType(
         textColor = Color.WHITE,
         nativeId = 6,
         memorySize = 4L,
+        isDisabled = true
     ),
     DWORD(
         code = "D",
@@ -86,6 +88,7 @@ enum class DisplayValueType(
         textColor = 0xFF9370DB.toInt(),
         nativeId = 7,
         memorySize = 4,
+        isDisabled = true
     ),
     UTF_8(
         code = "UTF-8",
@@ -94,7 +97,8 @@ enum class DisplayValueType(
         iconRes = R.drawable.type_text_24px,
         textColor = Color.WHITE,
         nativeId = 100,
-        memorySize = Long.MIN_VALUE
+        memorySize = Long.MIN_VALUE,
+        isDisabled = true
     ),
     UTF_16LE(
         code = "UTF-16LE",
@@ -103,7 +107,8 @@ enum class DisplayValueType(
         iconRes = R.drawable.type_text_24px,
         textColor = Color.WHITE,
         nativeId = 101,
-        memorySize = Long.MIN_VALUE
+        memorySize = Long.MIN_VALUE,
+        isDisabled = true
     ),
     HEX(
         code = "HEX",
@@ -112,7 +117,8 @@ enum class DisplayValueType(
         iconRes = R.drawable.type_hex_24px,
         textColor = Color.WHITE,
         nativeId = 102,
-        memorySize = Long.MIN_VALUE
+        memorySize = Long.MIN_VALUE,
+        isDisabled = true
     ),
     HEX_MIXED(
         code = "HEX_MIXED",
@@ -121,7 +127,8 @@ enum class DisplayValueType(
         iconRes = R.drawable.type_mixed_24px,
         textColor = Color.WHITE,
         nativeId = 103,
-        memorySize = Long.MIN_VALUE
+        memorySize = Long.MIN_VALUE,
+        isDisabled = true
     ),
     ARM(
         code = "ARM",
@@ -130,7 +137,8 @@ enum class DisplayValueType(
         iconRes = R.drawable.type_code_24px,
         textColor = Color.WHITE,
         nativeId = 104,
-        memorySize = Long.MIN_VALUE
+        memorySize = Long.MIN_VALUE,
+        isDisabled = true
     ),
     ARM64(
         code = "ARM64",
@@ -139,7 +147,8 @@ enum class DisplayValueType(
         iconRes = R.drawable.type_code_24px,
         textColor = Color.WHITE,
         nativeId = 105,
-        memorySize = Long.MIN_VALUE
+        memorySize = Long.MIN_VALUE,
+        isDisabled = true
     );
 
     companion object {

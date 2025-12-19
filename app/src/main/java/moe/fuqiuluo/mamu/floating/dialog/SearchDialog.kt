@@ -277,7 +277,7 @@ class SearchDialog(
             )
         }
 
-        val allValueTypes = DisplayValueType.entries.toTypedArray()
+        val allValueTypes = DisplayValueType.entries.filter { !it.isDisabled }.toTypedArray()
         val valueTypeNames = allValueTypes.map { it.displayName }.toTypedArray()
         val valueTypeColors = allValueTypes.map { it.textColor }.toTypedArray()
 
