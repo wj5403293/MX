@@ -50,4 +50,7 @@ sealed class UIActionEvent {
 
     /** 请求切换到断点 Tab */
     data object SwitchToBreakpointsTab : UIActionEvent()
+
+    /** 请求跳转到内存预览并定位到指定地址 */
+    data class JumpToMemoryPreview(val address: Long) : UIActionEvent()
 }

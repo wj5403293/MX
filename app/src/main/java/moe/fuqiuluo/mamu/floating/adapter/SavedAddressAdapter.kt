@@ -14,6 +14,7 @@ import moe.fuqiuluo.mamu.floating.data.model.DisplayValueType
 
 class SavedAddressAdapter(
     private val onItemClick: (SavedAddress, Int) -> Unit = { _, _ -> },
+    private val onItemLongClick: (SavedAddress, Int) -> Boolean = { _, _ -> false },
     private val onFreezeToggle: (SavedAddress, Boolean) -> Unit = { _, _ -> },
     private val onItemDelete: (SavedAddress) -> Unit = { _ -> },
     private val onSelectionChanged: (Int) -> Unit = {}
@@ -284,6 +285,13 @@ class SavedAddressAdapter(
             // 设置点击事件
             binding.itemContainer.setOnClickListener {
                 onItemClick(address, position)
+            }
+
+            // 设置长按事件
+            binding.itemContainer.setOnLongClickListener {
+                bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION }?.let { pos ->
+                    onItemLongClick(addresses[pos], pos)
+                } ?: false
             }
         }
 

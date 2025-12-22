@@ -7,4 +7,4 @@
     android:gravity="center_vertical"
     android:padding="@dimen/floating_spacing_lg"
     android:textColor="#FFFFFF"
-    android:textSize="@dimen/floating_text_h3" />
+    android:textSize="@dimen/floating_text_h4" />

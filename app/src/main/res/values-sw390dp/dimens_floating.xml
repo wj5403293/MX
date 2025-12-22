@@ -54,6 +54,7 @@
     <dimen name="floating_text_h1">20sp</dimen>
     <dimen name="floating_text_h2">18sp</dimen>
     <dimen name="floating_text_h3">16sp</dimen>
+    <dimen name="floating_text_h4">14sp</dimen>
     <dimen name="floating_text_body">14sp</dimen>
     <dimen name="floating_text_caption">12sp</dimen>
     <dimen name="floating_text_small">11sp</dimen>

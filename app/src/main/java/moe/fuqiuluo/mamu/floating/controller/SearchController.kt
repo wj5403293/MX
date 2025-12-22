@@ -36,6 +36,7 @@ import moe.fuqiuluo.mamu.floating.data.model.DisplayMemRegionEntry
 import moe.fuqiuluo.mamu.floating.data.model.DisplayProcessInfo
 import moe.fuqiuluo.mamu.floating.data.model.DisplayValueType
 import moe.fuqiuluo.mamu.floating.data.model.MemoryBackupRecord
+import moe.fuqiuluo.mamu.floating.dialog.AddressActionDialog
 import moe.fuqiuluo.mamu.floating.event.UIActionEvent
 import moe.fuqiuluo.mamu.utils.ValueTypeUtils
 import moe.fuqiuluo.mamu.utils.ByteFormatUtils.formatBytes
@@ -267,9 +268,7 @@ class SearchController(
                 showModifyValueDialog(result)
             },
             onItemLongClick = { result, position ->
-                notification.showSuccess(
-                    "长按了第 $position 个"
-                )
+                showAddressActionDialog(result)
                 true
             },
             onSelectionChanged = { selectedCount ->
@@ -795,6 +794,61 @@ class SearchController(
                 )
             )
         }
+    }
+
+    /**
+     * 显示地址操作对话框
+     */
+    private fun showAddressActionDialog(result: SearchResultItem) {
+        val address = when (result) {
+            is ExactSearchResultItem -> result.address
+            is FuzzySearchResultItem -> result.address
+            else -> {
+                notification.showError("无效的搜索结果类型")
+                return
+            }
+        }
+
+        val value = when (result) {
+            is ExactSearchResultItem -> result.value
+            is FuzzySearchResultItem -> result.value
+            else -> ""
+        }
+
+        val valueType = result.displayValueType ?: DisplayValueType.DWORD
+
+        val dialog = AddressActionDialog(
+            context = context,
+            notification = notification,
+            clipboardManager = clipboardManager,
+            address = address,
+            value = value,
+            valueType = valueType,
+            coroutineScope = coroutineScope,
+            callbacks = object : AddressActionDialog.Callbacks {
+                override fun onShowOffsetCalculator(address: Long) {
+                    // 调用偏移量计算器，传入当前地址作为初始基址
+                    coroutineScope.launch {
+                        FloatingEventBus.emitUIAction(
+                            UIActionEvent.ShowOffsetCalculatorDialog(
+                                initialBaseAddress = address
+                            )
+                        )
+                    }
+                }
+
+                override fun onJumpToAddress(address: Long) {
+                    // 发送跳转到内存预览的事件
+                    coroutineScope.launch {
+                        FloatingEventBus.emitUIAction(
+                            UIActionEvent.JumpToMemoryPreview(address)
+                        )
+                    }
+                }
+            }
+        )
+
+        dialog.show()
     }
 
     private fun showModifyValueDialog(result: SearchResultItem) {

@@ -33,6 +33,7 @@ import moe.fuqiuluo.mamu.floating.data.model.DisplayProcessInfo
 import moe.fuqiuluo.mamu.floating.data.model.DisplayValueType
 import moe.fuqiuluo.mamu.floating.data.model.MemoryRange
 import moe.fuqiuluo.mamu.floating.data.model.SavedAddress
+import moe.fuqiuluo.mamu.floating.dialog.AddressActionDialog
 import moe.fuqiuluo.mamu.floating.dialog.BatchModifyValueDialog
 import moe.fuqiuluo.mamu.floating.dialog.ModifyValueDialog
 import moe.fuqiuluo.mamu.floating.dialog.OffsetXorDialog
@@ -64,6 +65,10 @@ class SavedAddressController(
     private val adapter: SavedAddressAdapter = SavedAddressAdapter(
         onItemClick = { address, position ->
             showModifyValueDialog(address)
+        },
+        onItemLongClick = { address, position ->
+            showAddressActionDialog(address)
+            true
         },
         onFreezeToggle = { address, isFrozen ->
             // 切换冻结状态
@@ -541,6 +546,49 @@ class SavedAddressController(
                 notification.showWarning("成功: $successCount, 失败: $failCount")
             }
         }
+    }
+
+    /**
+     * 显示地址操作对话框
+     */
+    private fun showAddressActionDialog(savedAddress: SavedAddress) {
+        val clipboardManager =
+            context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+
+        val valueType = savedAddress.displayValueType ?: DisplayValueType.DWORD
+
+        val dialog = AddressActionDialog(
+            context = context,
+            notification = notification,
+            clipboardManager = clipboardManager,
+            address = savedAddress.address,
+            value = savedAddress.value,
+            valueType = valueType,
+            coroutineScope = coroutineScope,
+            callbacks = object : AddressActionDialog.Callbacks {
+                override fun onShowOffsetCalculator(address: Long) {
+                    // 调用偏移量计算器，传入当前地址作为初始基址
+                    coroutineScope.launch {
+                        FloatingEventBus.emitUIAction(
+                            UIActionEvent.ShowOffsetCalculatorDialog(
+                                initialBaseAddress = address
+                            )
+                        )
+                    }
+                }
+
+                override fun onJumpToAddress(address: Long) {
+                    // 发送跳转到内存预览的事件
+                    coroutineScope.launch {
+                        FloatingEventBus.emitUIAction(
+                            UIActionEvent.JumpToMemoryPreview(address)
+                        )
+                    }
+                }
+            }
+        )
+
+        dialog.show()
     }
 
     /**

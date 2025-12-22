@@ -15,6 +15,7 @@ import moe.fuqiuluo.mamu.floating.data.model.MemoryPreviewItem
 
 class MemoryPreviewAdapter(
     private val onRowClick: (MemoryPreviewItem.MemoryRow) -> Unit = {},
+    private val onRowLongClick: (MemoryPreviewItem.MemoryRow) -> Boolean = { false },
     private val onNavigationClick: (Long, Boolean) -> Unit = { _, _ -> },
     private val onSelectionChanged: (Int) -> Unit = {}
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
@@ -233,6 +234,18 @@ class MemoryPreviewAdapter(
                     item?.let {
                         onRowClick(it)
                     }
+                }
+            }
+
+            binding.root.setOnLongClickListener {
+                val position = bindingAdapterPosition
+                if (position != RecyclerView.NO_POSITION) {
+                    val item = items[position] as? MemoryPreviewItem.MemoryRow
+                    item?.let {
+                        onRowLongClick(it)
+                    } ?: false
+                } else {
+                    false
                 }
             }
         }

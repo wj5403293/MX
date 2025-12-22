@@ -16,13 +16,16 @@ import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.util.Log
-import android.view.*
-import android.view.animation.AccelerateDecelerateInterpolator
-import android.view.animation.AlphaAnimation
-import android.widget.*
+import android.view.Gravity
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewConfiguration
+import android.view.ViewGroup
+import android.view.WindowManager
+import android.widget.FrameLayout
+import android.widget.Toast
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.core.app.NotificationCompat
-import androidx.core.view.isVisible
 import com.tencent.mmkv.MMKV
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +38,6 @@ import moe.fuqiuluo.mamu.R
 import moe.fuqiuluo.mamu.data.settings.filterLinuxProcess
 import moe.fuqiuluo.mamu.data.settings.filterSystemProcess
 import moe.fuqiuluo.mamu.data.settings.selectedMemoryRanges
-import moe.fuqiuluo.mamu.data.settings.tabSwitchAnimation
 import moe.fuqiuluo.mamu.data.settings.topMostLayer
 import moe.fuqiuluo.mamu.databinding.FloatingFullscreenLayoutBinding
 import moe.fuqiuluo.mamu.databinding.FloatingWindowLayoutBinding
@@ -43,7 +45,11 @@ import moe.fuqiuluo.mamu.driver.ProcessDeathMonitor
 import moe.fuqiuluo.mamu.driver.WuwaDriver
 import moe.fuqiuluo.mamu.floating.FloatingWindowStateManager
 import moe.fuqiuluo.mamu.floating.adapter.ProcessListAdapter
-import moe.fuqiuluo.mamu.floating.controller.*
+import moe.fuqiuluo.mamu.floating.controller.BreakpointController
+import moe.fuqiuluo.mamu.floating.controller.MemoryPreviewController
+import moe.fuqiuluo.mamu.floating.controller.SavedAddressController
+import moe.fuqiuluo.mamu.floating.controller.SearchController
+import moe.fuqiuluo.mamu.floating.controller.SettingsController
 import moe.fuqiuluo.mamu.floating.data.model.DisplayProcessInfo
 import moe.fuqiuluo.mamu.floating.data.model.MemoryRange
 import moe.fuqiuluo.mamu.floating.dialog.MemoryRangeDialog
@@ -51,6 +57,7 @@ import moe.fuqiuluo.mamu.floating.dialog.OffsetCalculatorDialog
 import moe.fuqiuluo.mamu.floating.dialog.OffsetXorDialog
 import moe.fuqiuluo.mamu.floating.dialog.customDialog
 import moe.fuqiuluo.mamu.floating.event.FloatingEventBus
+import moe.fuqiuluo.mamu.floating.event.NavigateToMemoryAddressEvent
 import moe.fuqiuluo.mamu.floating.event.ProcessStateEvent
 import moe.fuqiuluo.mamu.floating.event.UIActionEvent
 import moe.fuqiuluo.mamu.floating.ext.applyOpacity
@@ -61,7 +68,7 @@ import moe.fuqiuluo.mamu.utils.RootConfigManager
 import moe.fuqiuluo.mamu.utils.RootShellExecutor
 import moe.fuqiuluo.mamu.utils.onError
 import moe.fuqiuluo.mamu.utils.onSuccess
-import moe.fuqiuluo.mamu.widget.*
+import moe.fuqiuluo.mamu.widget.NotificationOverlay
 
 private const val TAG = "FloatingWindowService"
 private const val NOTIFICATION_ID = 1001
@@ -181,47 +188,111 @@ class FloatingWindowService : Service(), ProcessDeathMonitor.Callback {
 
                     is UIActionEvent.SwitchToSettingsTab -> {
                         isProgrammaticTabSwitch = true
-                        fullscreenBinding.tabLayout.selectTab(fullscreenBinding.tabLayout.getTabAt(TAB_SETTINGS))
-                        fullscreenBinding.sidebarNavigationRail.selectedItemId = R.id.navigation_settings
-                        updateNavigationRailIndicator(fullscreenBinding.sidebarNavigationRail, R.id.navigation_settings)
+                        fullscreenBinding.tabLayout.selectTab(
+                            fullscreenBinding.tabLayout.getTabAt(
+                                TAB_SETTINGS
+                            )
+                        )
+                        fullscreenBinding.sidebarNavigationRail.selectedItemId =
+                            R.id.navigation_settings
+                        updateNavigationRailIndicator(
+                            fullscreenBinding.sidebarNavigationRail,
+                            R.id.navigation_settings
+                        )
                         isProgrammaticTabSwitch = false
                         switchToTab(TAB_SETTINGS)
                     }
 
                     is UIActionEvent.SwitchToSearchTab -> {
                         isProgrammaticTabSwitch = true
-                        fullscreenBinding.tabLayout.selectTab(fullscreenBinding.tabLayout.getTabAt(TAB_SEARCH))
-                        fullscreenBinding.sidebarNavigationRail.selectedItemId = R.id.navigation_search
-                        updateNavigationRailIndicator(fullscreenBinding.sidebarNavigationRail, R.id.navigation_search)
+                        fullscreenBinding.tabLayout.selectTab(
+                            fullscreenBinding.tabLayout.getTabAt(
+                                TAB_SEARCH
+                            )
+                        )
+                        fullscreenBinding.sidebarNavigationRail.selectedItemId =
+                            R.id.navigation_search
+                        updateNavigationRailIndicator(
+                            fullscreenBinding.sidebarNavigationRail,
+                            R.id.navigation_search
+                        )
                         isProgrammaticTabSwitch = false
                         switchToTab(TAB_SEARCH)
                     }
 
                     is UIActionEvent.SwitchToSavedAddressesTab -> {
                         isProgrammaticTabSwitch = true
-                        fullscreenBinding.tabLayout.selectTab(fullscreenBinding.tabLayout.getTabAt(TAB_SAVED_ADDRESSES))
-                        fullscreenBinding.sidebarNavigationRail.selectedItemId = R.id.navigation_saved_addresses
-                        updateNavigationRailIndicator(fullscreenBinding.sidebarNavigationRail, R.id.navigation_saved_addresses)
+                        fullscreenBinding.tabLayout.selectTab(
+                            fullscreenBinding.tabLayout.getTabAt(
+                                TAB_SAVED_ADDRESSES
+                            )
+                        )
+                        fullscreenBinding.sidebarNavigationRail.selectedItemId =
+                            R.id.navigation_saved_addresses
+                        updateNavigationRailIndicator(
+                            fullscreenBinding.sidebarNavigationRail,
+                            R.id.navigation_saved_addresses
+                        )
                         isProgrammaticTabSwitch = false
                         switchToTab(TAB_SAVED_ADDRESSES)
                     }
 
                     is UIActionEvent.SwitchToMemoryPreviewTab -> {
                         isProgrammaticTabSwitch = true
-                        fullscreenBinding.tabLayout.selectTab(fullscreenBinding.tabLayout.getTabAt(TAB_MEMORY_PREVIEW))
-                        fullscreenBinding.sidebarNavigationRail.selectedItemId = R.id.navigation_memory_preview
-                        updateNavigationRailIndicator(fullscreenBinding.sidebarNavigationRail, R.id.navigation_memory_preview)
+                        fullscreenBinding.tabLayout.selectTab(
+                            fullscreenBinding.tabLayout.getTabAt(
+                                TAB_MEMORY_PREVIEW
+                            )
+                        )
+                        fullscreenBinding.sidebarNavigationRail.selectedItemId =
+                            R.id.navigation_memory_preview
+                        updateNavigationRailIndicator(
+                            fullscreenBinding.sidebarNavigationRail,
+                            R.id.navigation_memory_preview
+                        )
                         isProgrammaticTabSwitch = false
                         switchToTab(TAB_MEMORY_PREVIEW)
                     }
 
                     is UIActionEvent.SwitchToBreakpointsTab -> {
                         isProgrammaticTabSwitch = true
-                        fullscreenBinding.tabLayout.selectTab(fullscreenBinding.tabLayout.getTabAt(TAB_BREAKPOINTS))
-                        fullscreenBinding.sidebarNavigationRail.selectedItemId = R.id.navigation_breakpoints
-                        updateNavigationRailIndicator(fullscreenBinding.sidebarNavigationRail, R.id.navigation_breakpoints)
+                        fullscreenBinding.tabLayout.selectTab(
+                            fullscreenBinding.tabLayout.getTabAt(
+                                TAB_BREAKPOINTS
+                            )
+                        )
+                        fullscreenBinding.sidebarNavigationRail.selectedItemId =
+                            R.id.navigation_breakpoints
+                        updateNavigationRailIndicator(
+                            fullscreenBinding.sidebarNavigationRail,
+                            R.id.navigation_breakpoints
+                        )
                         isProgrammaticTabSwitch = false
                         switchToTab(TAB_BREAKPOINTS)
+                    }
+
+                    is UIActionEvent.JumpToMemoryPreview -> {
+                        // 先切换到内存预览tab
+                        isProgrammaticTabSwitch = true
+                        fullscreenBinding.tabLayout.selectTab(
+                            fullscreenBinding.tabLayout.getTabAt(
+                                TAB_MEMORY_PREVIEW
+                            )
+                        )
+                        fullscreenBinding.sidebarNavigationRail.selectedItemId =
+                            R.id.navigation_memory_preview
+                        updateNavigationRailIndicator(
+                            fullscreenBinding.sidebarNavigationRail,
+                            R.id.navigation_memory_preview
+                        )
+                        isProgrammaticTabSwitch = false
+                        switchToTab(TAB_MEMORY_PREVIEW)
+
+                        coroutineScope.launch {
+                            FloatingEventBus.emitNavigateToMemoryAddress(
+                                NavigateToMemoryAddressEvent(address = event.address)
+                            )
+                        }
                     }
                 }
             }
@@ -671,13 +742,29 @@ class FloatingWindowService : Service(), ProcessDeathMonitor.Callback {
         // 设置 TabLayout（顶部工具栏）
         fullscreenBinding.tabLayout.apply {
             removeAllTabs()
-            addTab(newTab().setIcon(R.drawable.icon_settings_24px).setContentDescription(getString(R.string.tab_settings)))
-            addTab(newTab().setIcon(R.drawable.icon_search_24px).setContentDescription(getString(R.string.tab_search)))
-            addTab(newTab().setIcon(R.drawable.icon_save_24px).setContentDescription(getString(R.string.tab_saved_addresses)))
-            addTab(newTab().setIcon(R.drawable.icon_list_24px).setContentDescription(getString(R.string.tab_memory_preview)))
-            addTab(newTab().setIcon(R.drawable.icon_bug_report_24px).setContentDescription(getString(R.string.tab_breakpoints)))
+            addTab(
+                newTab().setIcon(R.drawable.icon_settings_24px)
+                    .setContentDescription(getString(R.string.tab_settings))
+            )
+            addTab(
+                newTab().setIcon(R.drawable.icon_search_24px)
+                    .setContentDescription(getString(R.string.tab_search))
+            )
+            addTab(
+                newTab().setIcon(R.drawable.icon_save_24px)
+                    .setContentDescription(getString(R.string.tab_saved_addresses))
+            )
+            addTab(
+                newTab().setIcon(R.drawable.icon_list_24px)
+                    .setContentDescription(getString(R.string.tab_memory_preview))
+            )
+            addTab(
+                newTab().setIcon(R.drawable.icon_bug_report_24px)
+                    .setContentDescription(getString(R.string.tab_breakpoints))
+            )
 
-            addOnTabSelectedListener(object : com.google.android.material.tabs.TabLayout.OnTabSelectedListener {
+            addOnTabSelectedListener(object :
+                com.google.android.material.tabs.TabLayout.OnTabSelectedListener {
                 override fun onTabSelected(tab: com.google.android.material.tabs.TabLayout.Tab?) {
                     if (isProgrammaticTabSwitch) return
                     tab?.let {
@@ -687,7 +774,10 @@ class FloatingWindowService : Service(), ProcessDeathMonitor.Callback {
                         if (fullscreenBinding.sidebarNavigationRail.selectedItemId != itemId) {
                             isProgrammaticTabSwitch = true
                             fullscreenBinding.sidebarNavigationRail.selectedItemId = itemId
-                            updateNavigationRailIndicator(fullscreenBinding.sidebarNavigationRail, itemId)
+                            updateNavigationRailIndicator(
+                                fullscreenBinding.sidebarNavigationRail,
+                                itemId
+                            )
                             isProgrammaticTabSwitch = false
                         }
                     }
@@ -712,7 +802,11 @@ class FloatingWindowService : Service(), ProcessDeathMonitor.Callback {
                 // 同步顶部 TabLayout
                 if (fullscreenBinding.tabLayout.selectedTabPosition != tabIndex) {
                     isProgrammaticTabSwitch = true
-                    fullscreenBinding.tabLayout.selectTab(fullscreenBinding.tabLayout.getTabAt(tabIndex))
+                    fullscreenBinding.tabLayout.selectTab(
+                        fullscreenBinding.tabLayout.getTabAt(
+                            tabIndex
+                        )
+                    )
                     isProgrammaticTabSwitch = false
                 }
                 true
@@ -777,7 +871,8 @@ class FloatingWindowService : Service(), ProcessDeathMonitor.Callback {
                 val indicator = itemView.findViewWithTag<View>("custom_indicator") ?: continue
 
                 val menuItem = navigationRail.menu.getItem(i)
-                indicator.visibility = if (menuItem.itemId == selectedItemId) View.VISIBLE else View.GONE
+                indicator.visibility =
+                    if (menuItem.itemId == selectedItemId) View.VISIBLE else View.GONE
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to update NavigationRail indicator", e)

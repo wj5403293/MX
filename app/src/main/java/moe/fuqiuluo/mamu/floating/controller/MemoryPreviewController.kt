@@ -37,6 +37,7 @@ import moe.fuqiuluo.mamu.floating.data.model.MemoryDisplayFormat
 import moe.fuqiuluo.mamu.floating.data.model.MemoryPreviewItem
 import moe.fuqiuluo.mamu.floating.data.model.MemoryRange
 import moe.fuqiuluo.mamu.floating.data.model.SavedAddress
+import moe.fuqiuluo.mamu.floating.dialog.AddressActionDialog
 import moe.fuqiuluo.mamu.floating.dialog.BatchModifyValueDialog
 import moe.fuqiuluo.mamu.floating.dialog.ModifyValueDialog
 import moe.fuqiuluo.mamu.floating.event.AddressValueChangedEvent
@@ -91,6 +92,11 @@ class MemoryPreviewController(
         onRowClick = { memoryRow ->
             // 点击时显示编辑对话框
             showModifyValueDialog(memoryRow)
+        },
+        onRowLongClick = { memoryRow ->
+            // 长按时显示地址操作菜单
+            showAddressActionDialog(memoryRow)
+            true
         },
         onNavigationClick = { targetAddress, isNext ->
             // 翻页时清除高亮，直接跳转到页头
@@ -995,6 +1001,64 @@ class MemoryPreviewController(
     /**
      * 显示修改内存值对话框
      */
+    private fun showAddressActionDialog(memoryRow: MemoryPreviewItem.MemoryRow) {
+        if (!WuwaDriver.isProcessBound) {
+            notification.showError("未绑定进程")
+            return
+        }
+
+        val clipboardManager =
+            context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+
+        // 获取当前内存值
+        val defaultType = DisplayValueType.DWORD
+        coroutineScope.launch {
+            // 异步读取当前内存值
+            val currentValue = withContext(Dispatchers.IO) {
+                try {
+                    val bytes =
+                        WuwaDriver.readMemory(memoryRow.address, defaultType.memorySize.toInt())
+                    if (bytes != null) {
+                        ValueTypeUtils.bytesToDisplayValue(bytes, defaultType)
+                    } else {
+                        "?"
+                    }
+                } catch (e: Exception) {
+                    "?"
+                }
+            }
+
+            val dialog = AddressActionDialog(
+                context = context,
+                notification = notification,
+                clipboardManager = clipboardManager,
+                address = memoryRow.address,
+                value = currentValue,
+                valueType = defaultType,
+                coroutineScope = coroutineScope,
+                callbacks = object : AddressActionDialog.Callbacks {
+                    override fun onShowOffsetCalculator(address: Long) {
+                        // 调用偏移量计算器，传入当前地址作为初始基址
+                        coroutineScope.launch {
+                            FloatingEventBus.emitUIAction(
+                                UIActionEvent.ShowOffsetCalculatorDialog(
+                                    initialBaseAddress = address
+                                )
+                            )
+                        }
+                    }
+
+                    override fun onJumpToAddress(address: Long) {
+                        // 直接跳转到地址（已经在内存预览页面）
+                        jumpToPage(address)
+                    }
+                }
+            )
+
+            dialog.show()
+        }
+    }
+
     private fun showModifyValueDialog(memoryRow: MemoryPreviewItem.MemoryRow) {
         if (!WuwaDriver.isProcessBound) {
             notification.showError("未绑定进程")

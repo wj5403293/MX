@@ -4,6 +4,8 @@ import moe.fuqiuluo.mamu.floating.data.model.DisplayValueType
 
 interface SearchResultItem {
     val nativePosition: Long // 原始索引，目的是方便
+
+    val displayValueType: DisplayValueType?
 }
 
 data class ExactSearchResultItem(
@@ -12,7 +14,7 @@ data class ExactSearchResultItem(
     val valueType: Int,
     val value: String,
 ): SearchResultItem {
-    val displayValueType: DisplayValueType?
+    override val displayValueType: DisplayValueType?
         get() = DisplayValueType.fromNativeId(valueType)
 }
 
@@ -22,6 +24,6 @@ data class FuzzySearchResultItem(
     val value: String,
     val valueType: Int
 ): SearchResultItem {
-    val displayValueType: DisplayValueType?
+    override val displayValueType: DisplayValueType?
         get() = DisplayValueType.fromNativeId(valueType)
 }
