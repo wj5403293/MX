@@ -21,8 +21,25 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        // Debug signing uses default Android debug keystore (no changes needed)
+        getByName("debug") {
+            // Uses default ~/.android/debug.keystore
+        }
+
+        // Release signing from environment variables (populated by CI or local builds)
+        create("release") {
+            val keystorePath = System.getenv("RELEASE_KEYSTORE_PATH") ?: file("keystore/release.keystore").absolutePath
+            storeFile = file(keystorePath)
+            storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD") ?: "defaultPasswordNotForProduction"
+            keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: "mamu_release"
+            keyPassword = System.getenv("RELEASE_KEYSTORE_PASSWORD") ?: "defaultPasswordNotForProduction"
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
