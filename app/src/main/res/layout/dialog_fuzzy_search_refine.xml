@@ -25,7 +25,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="@dimen/floating_spacing_md"
-        android:text="@string/fuzzy_search_initial_subtitle" />
+        android:text="@string/fuzzy_search_refine_subtitle" />
 
     <!-- 当前结果统计 -->
     <com.google.android.material.textview.MaterialTextView
@@ -36,40 +36,7 @@
         android:layout_marginBottom="@dimen/floating_spacing_md"
         android:text="@string/fuzzy_search_current_results"
         android:textColor="@color/floating_primary"
-        android:visibility="gone" />
-
-    <!-- 数据类型选择（初始模式） -->
-    <LinearLayout
-        android:id="@+id/layout_initial_mode"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="@dimen/floating_spacing_md"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:visibility="visible">
-
-        <com.google.android.material.textview.MaterialTextView
-            style="@style/FloatingText.Body"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:padding="@dimen/floating_spacing_sm"
-            android:text="@string/label_type" />
-
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/btn_select_type"
-            android:layout_width="0dp"
-            android:layout_height="@dimen/floating_height_button_sm"
-            android:layout_weight="1"
-            android:background="@drawable/bg_transparent_border"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:paddingStart="@dimen/floating_spacing_md"
-            android:paddingEnd="@dimen/floating_spacing_md"
-            android:text="DWORD"
-            android:textColor="@color/floating_text_primary"
-            android:textSize="@dimen/floating_text_caption" />
-    </LinearLayout>
+        android:visibility="visible" />
 
     <!-- 条件按钮（细化模式） -->
     <ScrollView
@@ -77,8 +44,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:scrollbars="vertical"
-        android:visibility="visible">
+        android:scrollbars="vertical">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -427,14 +393,13 @@
         android:layout_marginBottom="@dimen/floating_spacing_md"
         app:dividerColor="@color/floating_divider" />
 
-    <!-- 底部按钮（仅初始模式显示） -->
+    <!-- 底部按钮 -->
     <LinearLayout
         android:id="@+id/layout_bottom_buttons"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="end"
-        android:orientation="horizontal"
-        android:visibility="visible">
+        android:orientation="horizontal">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_new_search"
@@ -442,8 +407,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="@dimen/floating_spacing_sm"
-            android:text="@string/button_new_search"
-            android:visibility="gone" />
+            android:text="@string/button_new_search" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_cancel"
@@ -454,20 +418,11 @@
             android:text="@string/button_cancel" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_search"
-            style="@style/FloatingButton.Primary"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="@dimen/floating_spacing_sm"
-            android:text="@string/button_search" />
-
-        <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_refine"
             style="@style/FloatingButton.Primary"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/button_refine"
-            android:visibility="gone" />
+            android:text="@string/button_refine" />
 
     </LinearLayout>
 

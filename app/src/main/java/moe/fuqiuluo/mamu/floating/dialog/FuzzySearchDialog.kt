@@ -8,13 +8,17 @@ import android.view.View
 import android.view.animation.Animation
 import android.view.animation.RotateAnimation
 import android.widget.EditText
+import android.widget.ImageView
+import android.widget.LinearLayout
 import androidx.appcompat.app.AlertDialog
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.divider.MaterialDivider
+import com.google.android.material.textview.MaterialTextView
 import com.tencent.mmkv.MMKV
 import kotlinx.coroutines.*
 import moe.fuqiuluo.mamu.R
 import moe.fuqiuluo.mamu.data.settings.getDialogOpacity
 import moe.fuqiuluo.mamu.data.settings.selectedMemoryRanges
-import moe.fuqiuluo.mamu.databinding.DialogFuzzySearchBinding
 import moe.fuqiuluo.mamu.driver.FuzzyCondition
 import moe.fuqiuluo.mamu.driver.SearchEngine
 import moe.fuqiuluo.mamu.driver.SearchMode
@@ -23,6 +27,7 @@ import moe.fuqiuluo.mamu.floating.data.model.DisplayMemRegionEntry
 import moe.fuqiuluo.mamu.floating.data.model.DisplayValueType
 import moe.fuqiuluo.mamu.floating.ext.divideToSimpleMemoryRange
 import moe.fuqiuluo.mamu.floating.ext.formatElapsedTime
+import moe.fuqiuluo.mamu.widget.FixedLinearLayout
 import moe.fuqiuluo.mamu.widget.NotificationOverlay
 import moe.fuqiuluo.mamu.widget.simpleSingleChoiceDialog
 
@@ -38,14 +43,23 @@ class FuzzySearchDialog(
     private val onRefineCompleted: ((totalFound: Long) -> Unit)? = null
 ) : BaseDialog(context) {
     private val searchScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private lateinit var binding: DialogFuzzySearchBinding
+    private lateinit var contentView: View
     private lateinit var searchRanges: List<DisplayMemRegionEntry>
+
+    // View引用
+    private lateinit var rootContainer: FixedLinearLayout
+    private lateinit var tvSubtitle: MaterialTextView
+    private lateinit var tvCurrentResults: MaterialTextView
+    private lateinit var btnCancel: MaterialButton
 
     // 当前选中的数据类型
     private var currentValueType: DisplayValueType = DisplayValueType.DWORD
 
     // 当前模式：true=初始扫描, false=细化搜索
     private var isInitialMode = true
+
+    // 当前布局资源
+    private var currentLayoutResource: Int = R.layout.dialog_fuzzy_search_initial
 
     // 进度相关
     private var progressDialog: SearchProgressDialog? = null
@@ -54,42 +68,90 @@ class FuzzySearchDialog(
 
     @SuppressLint("SetTextI18n")
     override fun setupDialog() {
-        binding = DialogFuzzySearchBinding.inflate(LayoutInflater.from(dialog.context))
-        dialog.setContentView(binding.root)
-
+        // 初始化搜索范围（需要在布局inflate之前）
         val mmkv = MMKV.defaultMMKV()
-        val opacity = mmkv.getDialogOpacity()
-        binding.rootContainer.background?.alpha = (opacity * 255).toInt()
-
-        // 初始化搜索范围
         val selectedRanges = mmkv.selectedMemoryRanges
         searchRanges = WuwaDriver.queryMemRegionsWithRetry().divideToSimpleMemoryRange().filter {
             selectedRanges.contains(it.range)
         }
 
-        setupUI()
-
-        // 每次显示对话框时都检查是否应该进入细化模式
-        dialog.setOnShowListener {
-            checkAndUpdateMode()
+        // 检查当前应该使用哪个布局
+        val hasResults = SearchEngine.getTotalResultCount() > 0
+        val isFuzzyMode = SearchEngine.getCurrentSearchMode() == SearchMode.FUZZY
+        isInitialMode = !(hasResults && isFuzzyMode)
+        currentLayoutResource = if (isInitialMode) {
+            R.layout.dialog_fuzzy_search_initial
+        } else {
+            R.layout.dialog_fuzzy_search_refine
         }
 
-        updateModeUI()
+        // 根据当前模式inflate对应的布局
+        val inflater = LayoutInflater.from(dialog.context)
+        contentView = inflater.inflate(currentLayoutResource, null)
+        dialog.setContentView(contentView)
+
+        // 初始化View引用
+        initViews()
+
+        // 设置透明度
+        val opacity = mmkv.getDialogOpacity()
+        rootContainer.background?.alpha = (opacity * 255).toInt()
+
+        setupUI()
+    }
+
+    /**
+     * 初始化View引用
+     */
+    private fun initViews() {
+        rootContainer = contentView.findViewById(R.id.root_container)
+        tvSubtitle = contentView.findViewById(R.id.tv_subtitle)
+        tvCurrentResults = contentView.findViewById(R.id.tv_current_results)
+        btnCancel = contentView.findViewById(R.id.btn_cancel)
+    }
+
+    /**
+     * 切换到指定布局
+     */
+    private fun switchToLayout(layoutRes: Int) {
+        // 保存当前状态
+        val mmkv = MMKV.defaultMMKV()
+        val opacity = mmkv.getDialogOpacity()
+        val valueType = currentValueType
+
+        // 重新inflate布局（根据资源ID动态加载不同的布局文件）
+        val inflater = LayoutInflater.from(dialog.context)
+        contentView = inflater.inflate(layoutRes, null)
+        dialog.setContentView(contentView)
+
+        // 重新初始化View引用
+        initViews()
+
+        // 恢复状态
+        rootContainer.background?.alpha = (opacity * 255).toInt()
+        currentValueType = valueType
+
+        // 重新设置UI和事件监听器
+        setupUI()
+        updateCurrentResults()
     }
 
     private fun setupUI() {
-        // 数据类型选择
-        binding.btnSelectType.text = currentValueType.displayName
-        binding.btnSelectType.setOnClickListener {
-            showValueTypeSelectionDialog()
+        // 数据类型选择（初始模式专属）
+        contentView.findViewById<MaterialTextView>(R.id.btn_select_type)?.apply {
+            text = currentValueType.displayName
+            setOnClickListener {
+                showValueTypeSelectionDialog()
+            }
         }
 
         // 底部按钮
-        binding.btnCancel.setOnClickListener {
+        btnCancel.setOnClickListener {
             dismiss()
         }
 
-        binding.btnSearch.setOnClickListener {
+        // 搜索按钮（初始模式专属）
+        contentView.findViewById<MaterialButton>(R.id.btn_search)?.setOnClickListener {
             if (!WuwaDriver.isProcessBound) {
                 notification.showError("请先选择进程")
                 return@setOnClickListener
@@ -97,12 +159,13 @@ class FuzzySearchDialog(
             startFuzzyInitialSearch()
         }
 
-        binding.btnNewSearch.setOnClickListener {
+        // 新搜索按钮（细化模式专属）
+        contentView.findViewById<MaterialButton>(R.id.btn_new_search)?.setOnClickListener {
             resetToInitialMode()
         }
 
-        // 高级选项展开/折叠
-        binding.btnExpandAdvanced.setOnClickListener {
+        // 高级选项展开/折叠（细化模式专属）
+        contentView.findViewById<LinearLayout>(R.id.btn_expand_advanced)?.setOnClickListener {
             toggleAdvancedOptions()
         }
 
@@ -118,101 +181,65 @@ class FuzzySearchDialog(
      */
     private fun setupRefineButtons() {
         // 基础条件
-        binding.btnUnchanged.setOnClickListener { startRefineSearch(FuzzyCondition.UNCHANGED) }
-        binding.btnChanged.setOnClickListener { startRefineSearch(FuzzyCondition.CHANGED) }
-        binding.btnIncreased.setOnClickListener { startRefineSearch(FuzzyCondition.INCREASED) }
-        binding.btnDecreased.setOnClickListener { startRefineSearch(FuzzyCondition.DECREASED) }
+        contentView.findViewById<MaterialButton>(R.id.btn_unchanged)?.setOnClickListener { startRefineSearch(FuzzyCondition.UNCHANGED) }
+        contentView.findViewById<MaterialButton>(R.id.btn_changed)?.setOnClickListener { startRefineSearch(FuzzyCondition.CHANGED) }
+        contentView.findViewById<MaterialButton>(R.id.btn_increased)?.setOnClickListener { startRefineSearch(FuzzyCondition.INCREASED) }
+        contentView.findViewById<MaterialButton>(R.id.btn_decreased)?.setOnClickListener { startRefineSearch(FuzzyCondition.DECREASED) }
 
         // 增加指定值
-        binding.btnIncreasedBy1.setOnClickListener {
-            startRefineSearch(
-                FuzzyCondition.INCREASED_BY,
-                1
-            )
+        contentView.findViewById<MaterialButton>(R.id.btn_increased_by_1)?.setOnClickListener {
+            startRefineSearch(FuzzyCondition.INCREASED_BY, 1)
         }
-        binding.btnIncreasedBy10.setOnClickListener {
-            startRefineSearch(
-                FuzzyCondition.INCREASED_BY,
-                10
-            )
+        contentView.findViewById<MaterialButton>(R.id.btn_increased_by_10)?.setOnClickListener {
+            startRefineSearch(FuzzyCondition.INCREASED_BY, 10)
         }
-        binding.btnIncreasedBy100.setOnClickListener {
-            startRefineSearch(
-                FuzzyCondition.INCREASED_BY,
-                100
-            )
+        contentView.findViewById<MaterialButton>(R.id.btn_increased_by_100)?.setOnClickListener {
+            startRefineSearch(FuzzyCondition.INCREASED_BY, 100)
         }
-        binding.btnIncreasedByCustom.setOnClickListener { showCustomValueDialog(FuzzyCondition.INCREASED_BY) }
+        contentView.findViewById<MaterialButton>(R.id.btn_increased_by_custom)?.setOnClickListener {
+            showCustomValueDialog(FuzzyCondition.INCREASED_BY)
+        }
 
         // 减少指定值
-        binding.btnDecreasedBy1.setOnClickListener {
-            startRefineSearch(
-                FuzzyCondition.DECREASED_BY,
-                1
-            )
+        contentView.findViewById<MaterialButton>(R.id.btn_decreased_by_1)?.setOnClickListener {
+            startRefineSearch(FuzzyCondition.DECREASED_BY, 1)
         }
-        binding.btnDecreasedBy10.setOnClickListener {
-            startRefineSearch(
-                FuzzyCondition.DECREASED_BY,
-                10
-            )
+        contentView.findViewById<MaterialButton>(R.id.btn_decreased_by_10)?.setOnClickListener {
+            startRefineSearch(FuzzyCondition.DECREASED_BY, 10)
         }
-        binding.btnDecreasedBy100.setOnClickListener {
-            startRefineSearch(
-                FuzzyCondition.DECREASED_BY,
-                100
-            )
+        contentView.findViewById<MaterialButton>(R.id.btn_decreased_by_100)?.setOnClickListener {
+            startRefineSearch(FuzzyCondition.DECREASED_BY, 100)
         }
-        binding.btnDecreasedByCustom.setOnClickListener { showCustomValueDialog(FuzzyCondition.DECREASED_BY) }
+        contentView.findViewById<MaterialButton>(R.id.btn_decreased_by_custom)?.setOnClickListener {
+            showCustomValueDialog(FuzzyCondition.DECREASED_BY)
+        }
 
         // 增加百分比
-        binding.btnIncreasedBy10Percent.setOnClickListener {
-            startRefineSearch(
-                FuzzyCondition.INCREASED_BY_PERCENT,
-                10
-            )
+        contentView.findViewById<MaterialButton>(R.id.btn_increased_by_10_percent)?.setOnClickListener {
+            startRefineSearch(FuzzyCondition.INCREASED_BY_PERCENT, 10)
         }
-        binding.btnIncreasedBy50Percent.setOnClickListener {
-            startRefineSearch(
-                FuzzyCondition.INCREASED_BY_PERCENT,
-                50
-            )
+        contentView.findViewById<MaterialButton>(R.id.btn_increased_by_50_percent)?.setOnClickListener {
+            startRefineSearch(FuzzyCondition.INCREASED_BY_PERCENT, 50)
         }
-        binding.btnIncreasedBy100Percent.setOnClickListener {
-            startRefineSearch(
-                FuzzyCondition.INCREASED_BY_PERCENT,
-                100
-            )
+        contentView.findViewById<MaterialButton>(R.id.btn_increased_by_100_percent)?.setOnClickListener {
+            startRefineSearch(FuzzyCondition.INCREASED_BY_PERCENT, 100)
         }
-        binding.btnIncreasedByPercentCustom.setOnClickListener {
-            showCustomPercentDialog(
-                FuzzyCondition.INCREASED_BY_PERCENT
-            )
+        contentView.findViewById<MaterialButton>(R.id.btn_increased_by_percent_custom)?.setOnClickListener {
+            showCustomPercentDialog(FuzzyCondition.INCREASED_BY_PERCENT)
         }
 
         // 减少百分比
-        binding.btnDecreasedBy10Percent.setOnClickListener {
-            startRefineSearch(
-                FuzzyCondition.DECREASED_BY_PERCENT,
-                10
-            )
+        contentView.findViewById<MaterialButton>(R.id.btn_decreased_by_10_percent)?.setOnClickListener {
+            startRefineSearch(FuzzyCondition.DECREASED_BY_PERCENT, 10)
         }
-        binding.btnDecreasedBy50Percent.setOnClickListener {
-            startRefineSearch(
-                FuzzyCondition.DECREASED_BY_PERCENT,
-                50
-            )
+        contentView.findViewById<MaterialButton>(R.id.btn_decreased_by_50_percent)?.setOnClickListener {
+            startRefineSearch(FuzzyCondition.DECREASED_BY_PERCENT, 50)
         }
-        binding.btnDecreasedBy100Percent.setOnClickListener {
-            startRefineSearch(
-                FuzzyCondition.DECREASED_BY_PERCENT,
-                100
-            )
+        contentView.findViewById<MaterialButton>(R.id.btn_decreased_by_100_percent)?.setOnClickListener {
+            startRefineSearch(FuzzyCondition.DECREASED_BY_PERCENT, 100)
         }
-        binding.btnDecreasedByPercentCustom.setOnClickListener {
-            showCustomPercentDialog(
-                FuzzyCondition.DECREASED_BY_PERCENT
-            )
+        contentView.findViewById<MaterialButton>(R.id.btn_decreased_by_percent_custom)?.setOnClickListener {
+            showCustomPercentDialog(FuzzyCondition.DECREASED_BY_PERCENT)
         }
     }
 
@@ -220,33 +247,36 @@ class FuzzySearchDialog(
      * 切换高级选项显示/隐藏
      */
     private fun toggleAdvancedOptions() {
-        val isExpanded = binding.layoutAdvancedOptions.visibility == View.VISIBLE
+        val layoutAdvancedOptions = contentView.findViewById<LinearLayout>(R.id.layout_advanced_options) ?: return
+        val ivExpandIcon = contentView.findViewById<ImageView>(R.id.iv_expand_icon) ?: return
+
+        val isExpanded = layoutAdvancedOptions.visibility == View.VISIBLE
 
         if (isExpanded) {
             // 折叠
-            binding.layoutAdvancedOptions.visibility = View.GONE
-            animateExpandIcon(0f)
+            layoutAdvancedOptions.visibility = View.GONE
+            animateExpandIcon(ivExpandIcon, 0f)
         } else {
             // 展开
-            binding.layoutAdvancedOptions.visibility = View.VISIBLE
-            animateExpandIcon(180f)
+            layoutAdvancedOptions.visibility = View.VISIBLE
+            animateExpandIcon(ivExpandIcon, 180f)
         }
     }
 
     /**
      * 旋转展开图标动画
      */
-    private fun animateExpandIcon(toRotation: Float) {
+    private fun animateExpandIcon(ivExpandIcon: ImageView, toRotation: Float) {
         val rotate = RotateAnimation(
-            binding.ivExpandIcon.rotation,
+            ivExpandIcon.rotation,
             toRotation,
             Animation.RELATIVE_TO_SELF, 0.5f,
             Animation.RELATIVE_TO_SELF, 0.5f
         )
         rotate.duration = 200
         rotate.fillAfter = true
-        binding.ivExpandIcon.startAnimation(rotate)
-        binding.ivExpandIcon.rotation = toRotation
+        ivExpandIcon.startAnimation(rotate)
+        ivExpandIcon.rotation = toRotation
     }
 
     /**
@@ -268,7 +298,7 @@ class FuzzySearchDialog(
             showRadioButton = false,
             onSingleChoice = { which ->
                 currentValueType = allValueTypes[which]
-                binding.btnSelectType.text = currentValueType.displayName
+                contentView.findViewById<MaterialTextView>(R.id.btn_select_type)?.text = currentValueType.displayName
             }
         )
     }
@@ -326,26 +356,15 @@ class FuzzySearchDialog(
      */
     @SuppressLint("SetTextI18n")
     private fun updateModeUI() {
-        if (isInitialMode) {
-            // 初始扫描模式
-            binding.tvSubtitle.text = context.getString(R.string.fuzzy_search_initial_subtitle)
-            binding.layoutInitialMode.visibility = View.VISIBLE
-            binding.layoutRefineMode.visibility = View.GONE
-            binding.layoutBottomButtons.visibility = View.VISIBLE
-            binding.dividerBottom.visibility = View.VISIBLE
-            binding.btnNewSearch.visibility = View.GONE
-            binding.btnSearch.visibility = View.VISIBLE
-            binding.btnRefine.visibility = View.GONE
+        val targetLayout = if (isInitialMode) {
+            R.layout.dialog_fuzzy_search_initial
         } else {
-            // 细化搜索模式
-            binding.tvSubtitle.text = context.getString(R.string.fuzzy_search_refine_subtitle)
-            binding.layoutInitialMode.visibility = View.GONE
-            binding.layoutRefineMode.visibility = View.VISIBLE
-            binding.layoutBottomButtons.visibility = View.GONE
-            binding.dividerBottom.visibility = View.GONE
-            binding.btnNewSearch.visibility = View.VISIBLE
-            binding.btnSearch.visibility = View.GONE
-            binding.btnRefine.visibility = View.VISIBLE
+            R.layout.dialog_fuzzy_search_refine
+        }
+
+        if (currentLayoutResource != targetLayout) {
+            currentLayoutResource = targetLayout
+            switchToLayout(targetLayout)
         }
     }
 
@@ -356,13 +375,13 @@ class FuzzySearchDialog(
     private fun updateCurrentResults() {
         val totalCount = SearchEngine.getTotalResultCount()
         if (totalCount > 0) {
-            binding.tvCurrentResults.visibility = View.VISIBLE
-            binding.tvCurrentResults.text = context.getString(
+            tvCurrentResults.visibility = View.VISIBLE
+            tvCurrentResults.text = context.getString(
                 R.string.fuzzy_search_current_results,
                 totalCount
             )
         } else {
-            binding.tvCurrentResults.visibility = View.GONE
+            tvCurrentResults.visibility = View.GONE
         }
     }
 
