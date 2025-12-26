@@ -14,18 +14,140 @@ use std::sync::Arc;
 /// 每个 rayon 任务扫描的粒度
 const PAR_SCAN_GRAIN: usize = 256 * 1024;
 
+#[inline]
+fn first_aligned_pos(base_addr: u64, start_pos: usize, align: usize) -> usize {
+    // 找到 >= start_pos 的第一个使得 (base_addr + pos) % align == 0 的 pos
+    let a = align as u64;
+    let cur = base_addr + start_pos as u64;
+    let rem = (cur % a) as usize;
+    if rem == 0 { start_pos } else { start_pos + (align - rem) }
+}
+
+#[inline]
+pub(crate) fn search_in_chunks_with_status(
+    buffer: &[u8],
+    buffer_addr: u64,                      // 当前读取的缓冲区对应目标进程的一块内存的起始地址
+    region_start: u64,                     // 搜索区域的起始地址
+    region_end: u64,                       // 搜索区域的结束地址
+    element_size: usize,                   // 元素大小
+    target: &SearchValue,                  // 目标搜索值
+    value_type: ValueType,                 // 目标值类型
+    page_status: &PageStatusBitmap,        // 页面状态位图
+    results: &mut Vec<ValuePair>, // 搜索结果
+) {
+    assert_eq!(buffer_addr as usize % *PAGE_SIZE, 0);
+
+    let buffer_end = buffer_addr + buffer.len() as u64; // 结束地址
+    let search_start = buffer_addr.max(region_start); // 实际搜索起始地址
+    let search_end = buffer_end.min(region_end); // 实际搜索结束地址
+
+    if search_start >= search_end {
+        return;
+    }
+
+    // 只扫描 buffer 内与 [search_start, search_end) 交集对应的 pos 范围
+    let scan_start_pos = (search_start - buffer_addr) as usize;
+    let scan_end_pos = (search_end - buffer_addr) as usize;
+
+    // 按大粒度切分 pos 范围，之前的代码按照4k分块抵消了并行优势
+    let ranges: Vec<(usize, usize)> = (scan_start_pos..scan_end_pos)
+        .step_by(PAR_SCAN_GRAIN)
+        .map(|s| {
+            let e = (s + PAR_SCAN_GRAIN).min(scan_end_pos);
+            (s, e)
+        })
+        .collect();
+
+    let fast_int = target.is_fixed_int() && target.bytes().ok().filter(|b| !b.is_empty()).is_some();
+
+    let hits = ranges
+        .into_par_iter()
+        .map(|(rs, re)| {
+            let mut local = Vec::<u64>::new();
+
+            // 这里用 while 方便跳过失败页
+            let mut pos = rs;
+            if fast_int
+                && let Ok(bytes) = target.bytes()
+                && bytes.iter().any(|&b| b != 0x00 && b != 0xFF) // 有特征字节（避免候选爆炸）
+            {
+                let haystack = &buffer[rs..re];
+                let first_byte = bytes[0];
+
+                for offset in memchr_iter(first_byte, haystack) {
+                    let actual_pos = rs + offset;
+
+                    // 检查是否有足够空间
+                    if actual_pos + element_size > re {
+                        break;
+                    }
+
+                    // 检查对齐
+                    let addr = buffer_addr + actual_pos as u64;
+                    local.push(addr);
+                }
+            } else {
+                // 注意：对齐必须按绝对地址算
+                pos = first_aligned_pos(buffer_addr, pos, element_size);
+
+                while pos < re {
+                    // 如果越界（比对需要 element_size/needle_len），提前结束
+                    if pos + element_size > re {
+                        break;
+                    }
+
+                    // 跳过失败页：一旦发现当前 pos 所在页不成功，直接跳到下一页开始，并重新对齐
+                    let page_idx = pos / *PAGE_SIZE;
+                    if !page_status.is_page_success(page_idx) {
+                        let next_page = (page_idx + 1) * *PAGE_SIZE;
+                        pos = first_aligned_pos(buffer_addr, next_page.max(rs), element_size);
+                        continue;
+                    }
+
+                    let other = &buffer[pos..pos + element_size];
+                    let ok = if fast_int {
+                        // 如果你有 bytes，且 element_size == bytes.len()，可以直接比较，避免 matched() 的类型分发成本
+                        // （这里假设 bytes.len()==element_size，否则你要按真实逻辑调整）
+                        if let Ok(bytes) = target.bytes() { other == bytes } else { false }
+                    } else {
+                        target.matched(other).unwrap_or_else(|e| {
+                            error!("target.matched error, {}", e);
+                            false
+                        })
+                    };
+
+                    if ok {
+                        local.push(buffer_addr + pos as u64);
+                    }
+
+                    pos += element_size;
+                }
+            }
+
+            local
+        })
+        .reduce(Vec::new, |mut a, mut b| {
+            a.append(&mut b);
+            a
+        });
+
+    for addr in hits {
+        results.push(ValuePair::new(addr, value_type));
+    }
+}
+
 pub(crate) fn search_region_single(
     target: &SearchValue,
     start: u64,        // 区域起始地址
     end: u64,          // 区域结束地址
     chunk_size: usize, // 每次读取的块大小
-) -> Result<BPlusTreeSet<ValuePair>> {
+) -> Result<Vec<ValuePair>> {
     let driver_manager = DRIVER_MANAGER.read().map_err(|_| anyhow!("Failed to acquire DriverManager lock"))?;
 
     let value_type = target.value_type();
     let element_size = value_type.size();
 
-    let mut results = BPlusTreeSet::new(BPLUS_TREE_ORDER);
+    let mut results = Vec::new();
     let mut read_success = 0usize;
     let mut read_failed = 0usize;
 
@@ -85,113 +207,6 @@ pub(crate) fn search_region_single(
     // }
 
     Ok(results)
-}
-
-#[inline]
-pub(crate) fn search_in_chunks_with_status(
-    buffer: &[u8],
-    buffer_addr: u64,                      // 当前读取的缓冲区对应目标进程的一块内存的起始地址
-    region_start: u64,                     // 搜索区域的起始地址
-    region_end: u64,                       // 搜索区域的结束地址
-    element_size: usize,                   // 元素大小
-    target: &SearchValue,                  // 目标搜索值
-    value_type: ValueType,                 // 目标值类型
-    page_status: &PageStatusBitmap,        // 页面状态位图
-    results: &mut BPlusTreeSet<ValuePair>, // 搜索结果
-) {
-    assert_eq!(buffer_addr as usize % *PAGE_SIZE, 0);
-
-    let buffer_end = buffer_addr + buffer.len() as u64; // 结束地址
-    let search_start = buffer_addr.max(region_start); // 实际搜索起始地址
-    let search_end = buffer_end.min(region_end); // 实际搜索结束地址
-
-    if search_start >= search_end {
-        return;
-    }
-
-    let filter_chunks = buffer
-        .chunks(*PAGE_SIZE)
-        .enumerate()
-        .filter(|(idx, _)| page_status.is_page_success(*idx))
-        .map(|(idx, chunk)| {
-            let start_addr = (idx * *PAGE_SIZE + buffer_addr as usize) as u64;
-            let end_addr = start_addr + chunk.len() as u64;
-            (start_addr, end_addr, chunk)
-        })
-        // 只保留与 [search_start, search_end) 有交集的块
-        .filter(|(cs, ce, _ck)| *ce > search_start && *cs < search_end)
-        .collect::<Vec<_>>();
-
-    if target.is_fixed_int()
-        && let Ok(bytes) = target.bytes()
-        && !bytes.is_empty()
-        && !bytes.iter().all(|&b| b == 0)
-    // 保证不是奇怪的候选全0情况避免候选爆炸
-    {
-        // 这里有两种方案去实现整数的对比 (==)
-        // - memchr找到所有锚点再过滤掉不对齐的地址，
-        // memchr 这条路径里，SIMD 加速的是“找锚点字节”（一次扫很多字节找 needle[0]），它不依赖你后续的 align
-        //
-        // - step_by对齐一个个对比
-        // step_by(align) 这条路径里，你在每个对齐位置做 &haystack[pos..pos+len] == needle。这个比较的成本主要是：
-        // 很多情况下只比 1~几字节就失败（随机数据）；
-        // 以及“候选点数量 = hay_len / align”，align 越大，次数越少，所以线性变快。
-        // 这里的“SIMD”更多发生在 memcmp/slice compare 内部，但随机数据会很早退出，SIMD 根本来不及展开。
-        //
-        // 当对齐大小大于64字节的时候memchr方案将不会有提升，反而成为累赘，
-        // 这个“交叉点”本质上是：当 align 足够大时，step_by 的比较次数少到离谱，哪怕每次比较比较“笨”，总成本也低。
-        //
-        // 这里有一个拐点的边界情况，候选爆炸！
-        // uniform 全 0，needle 也全 0 时，memchr_iter(0x00, haystack) 会返回几乎每一个位置（1MiB 个候选）
-        // 然后你还要对每个候选做对齐判断 + 16字节比较（而且还经常成功，比较不会早退，反而更贵）
-        if log_enabled!(Level::Debug) {
-            info!("整数快速搜索路径");
-        }
-
-        let matched_addrs = filter_chunks
-            .into_par_iter()
-            .map(|(cs, ce, ck)| {
-                ck.find_aligned(bytes, element_size)
-                    .into_iter()
-                    .map(|pos| pos as u64 + cs)
-                    .filter(|addr| *addr >= search_start && *addr < search_end)
-                    .collect::<Vec<_>>()
-            })
-            .flatten()
-            .collect::<Vec<_>>();
-
-        for addr in matched_addrs {
-            results.insert(ValuePair::new(addr, value_type));
-        }
-        return;
-    }
-
-    // 这里下降到朴实无华的step_by
-    let matched_addrs = filter_chunks
-        .into_par_iter()
-        .map(|(cs, ce, ck)| {
-            let mut addrs = vec![];
-            for pos in (0..=ck.len()).step_by(element_size) {
-                if pos + element_size > ck.len() {
-                    break;
-                }
-                let other = &ck[pos..pos + element_size];
-                match target.matched(other) {
-                    Ok(true) => {
-                        addrs.push(pos as u64 + cs);
-                    }
-                    Ok(false) => continue,
-                    Err(e) => error!("target.matched error, {}", e),
-                }
-            }
-            addrs
-        })
-        .flatten()
-        .collect::<Vec<_>>();
-
-    for addr in matched_addrs {
-        results.insert(ValuePair::new(addr, value_type));
-    }
 }
 
 /// 单值细化搜索
