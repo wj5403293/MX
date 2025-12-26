@@ -12,9 +12,9 @@ use std::sync::atomic::{AtomicI64, AtomicUsize};
 use std::sync::Arc;
 
 /// 每个 rayon 任务扫描的粒度
-const PAR_SCAN_GRAIN: usize = 256 * 1024;
+const PAR_SCAN_GRAIN: usize = 64 * 1024;
 /// 使用memchr搜索大于1字节的数据
-const MEMCHR_FIND_ANCHOR: bool = false;
+const MEMCHR_FIND_ANCHOR: bool = true;
 
 #[inline]
 fn first_aligned_pos(base_addr: u64, start_pos: usize, align: usize) -> usize {

@@ -341,8 +341,12 @@ impl SearchEngineManager {
                     a
                 });
 
+            let start = Instant::now();
             all_results.sort_unstable_by(|a, b| a.addr.cmp(&b.addr));
             all_results.dedup();
+            if log_enabled!(Level::Debug) {
+                info!("搜索排序去重复耗时: {:?}", start.elapsed())
+            }
 
             all_results
         })
