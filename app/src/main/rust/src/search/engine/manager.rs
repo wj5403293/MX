@@ -1,18 +1,18 @@
-use super::super::SearchResultItem;
 use super::super::result_manager::{FuzzySearchResultItem, SearchResultManager, SearchResultMode};
 use super::super::types::{FuzzyCondition, SearchQuery, ValueType};
+use super::super::SearchResultItem;
 use super::filter::SearchFilter;
 use super::fuzzy_search;
 use super::group_search;
 use super::shared_buffer::{SearchErrorCode, SearchStatus, SharedBuffer};
 use super::single_search;
-use crate::core::DRIVER_MANAGER;
 use crate::core::globals::TOKIO_RUNTIME;
+use crate::core::DRIVER_MANAGER;
 use crate::search::result_manager::ExactSearchResultItem;
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use bplustree::BPlusTreeSet;
 use lazy_static::lazy_static;
-use log::{Level, debug, error, info, log_enabled, warn};
+use log::{debug, error, info, log_enabled, warn, Level};
 use rayon::prelude::*;
 use std::cmp::Ordering as CmpOrdering;
 use std::path::PathBuf;
@@ -222,7 +222,14 @@ impl SearchEngineManager {
     }
 
     /// Internal async search task that runs in tokio runtime.
-    async fn run_search_task(query: SearchQuery, regions: Vec<(u64, u64)>, use_deep_search: bool, chunk_size: usize, compatibility_mode: bool, cancel_token: CancellationToken) {
+    async fn run_search_task(
+        query: SearchQuery,
+        regions: Vec<(u64, u64)>,
+        use_deep_search: bool,
+        chunk_size: usize,
+        compatibility_mode: bool,
+        cancel_token: CancellationToken,
+    ) {
         let start_time = Instant::now();
         let total_regions = regions.len();
         let is_group_search = query.values.len() > 1;
@@ -395,7 +402,10 @@ impl SearchEngineManager {
                             let elapsed = start_time.elapsed().as_millis() as u64;
                             let final_count = result_mgr.total_count();
 
-                            info!("Search completed: {} results in {} ms (compat_mode={})", final_count, elapsed, compatibility_mode);
+                            info!(
+                                "Search completed: {} results in {} ms (compat_mode={})",
+                                final_count, elapsed, compatibility_mode
+                            );
 
                             // Update progress info but NOT status yet (write lock still held).
                             manager.shared_buffer.write_found_count(final_count as i64);
@@ -985,7 +995,15 @@ impl SearchEngineManager {
                 false
             };
 
-            fuzzy_search::fuzzy_refine_search(&current_results, condition, Some(&processed_clone), Some(&found_clone), &update_progress, Some(&check_cancelled)).unwrap_or_else(|e| {
+            fuzzy_search::fuzzy_refine_search(
+                &current_results,
+                condition,
+                Some(&processed_clone),
+                Some(&found_clone),
+                &update_progress,
+                Some(&check_cancelled),
+            )
+            .unwrap_or_else(|e| {
                 error!("Fuzzy refine failed: {:?}", e);
                 BPlusTreeSet::new(BPLUS_TREE_ORDER)
             })
@@ -1306,7 +1324,8 @@ impl SearchEngineManager {
         results: &mut BPlusTreeSet<ValuePair>,
         matches_checked: &mut usize,
     ) {
-        single_search::search_in_buffer_with_status(
+        single_search::search_in_chunks_with_status(
+            // 测试使用
             buffer,
             buffer_addr,
             region_start,
@@ -1316,7 +1335,6 @@ impl SearchEngineManager {
             value_type,
             page_status,
             results,
-            matches_checked,
         )
     }
 
