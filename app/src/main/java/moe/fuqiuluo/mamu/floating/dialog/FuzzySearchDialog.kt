@@ -83,7 +83,9 @@ class FuzzySearchDialog(
         // 初始化搜索范围（需要在布局inflate之前）
         val mmkv = MMKV.defaultMMKV()
         val selectedRanges = mmkv.selectedMemoryRanges
-        searchRanges = WuwaDriver.queryMemRegionsWithRetry().divideToSimpleMemoryRange().filter {
+        searchRanges = WuwaDriver.queryMemRegionsWithRetry().also {
+            Log.d(TAG, "找到 ${it.size} 个maps项")
+        }.divideToSimpleMemoryRange().filter {
             selectedRanges.contains(it.range)
         }
 
