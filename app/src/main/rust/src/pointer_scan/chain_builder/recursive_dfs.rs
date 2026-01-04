@@ -109,8 +109,9 @@ fn dfs_recursive(ctx: &DfsContext, tx: &Sender<PointerChain>, current_address: u
         return;
     }
 
+    let config = ctx.config;
     // 检查是否到达静态基址
-    if let Some((mod_name, mod_idx, base_offset)) = classify_pointer(current_address, ctx.static_modules) {
+    if let Some((mod_name, mod_idx, base_offset)) = classify_pointer(current_address, ctx.static_modules, config.data_start, config.bss_start) {
         // 构建链条
         let mut chain = PointerChain::with_capacity(ctx.config.target_address, offset_history.len() + 1);
         chain.push(PointerChainStep::static_root(mod_name, mod_idx, base_offset as i64));
@@ -123,8 +124,7 @@ fn dfs_recursive(ctx: &DfsContext, tx: &Sender<PointerChain>, current_address: u
         // 发送结果 (无锁，仅内存拷贝)
         // 如果通道已断开（极其罕见），忽略错误
         let _ = tx.send(chain);
-        // return;
-        // 这里的 return 意味着：如果一个指针指向了静态基址，这一枝就到此为止。
+        return; // 这里的 return 意味着：如果一个指针指向了静态基址，这一枝就到此为止。
     }
 
     // 深度限制

@@ -168,10 +168,9 @@ impl PointerScanManager {
             max_depth,
             max_offset,
             align,
-            scan_static_only: true,
-            include_heap: true,
-            include_stack: false,
             is_layer_bfs,
+            data_start: true,
+            bss_start: false,
         };
 
         // Reset state

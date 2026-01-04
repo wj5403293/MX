@@ -41,6 +41,7 @@ class PointerScanDialog(
     companion object {
         private const val TAG = "PointerScanDialog"
     }
+
     private val scanScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     // 扫描状态
@@ -149,7 +150,10 @@ class PointerScanDialog(
                     start = region.start,
                     end = region.end,
                     name = region.name,
-                    isStatic = region.name.endsWith(".so") || region.name.contains("lib")
+                    isStatic = (region.range == MemoryRange.Cd || region.range == MemoryRange.Cb || region.range == MemoryRange.Oa || region.range == MemoryRange.Xs || region.range == MemoryRange.Xa) || (
+                            region.range == MemoryRange.Xx && region.name.split("/").last()
+                                .let { it.startsWith("lib") && it.endsWith(".so") }
+                            )
                 )
             }
 

@@ -1,5 +1,62 @@
 use super::*;
 
+/// BFS遍历的路径节点。
+/// 存储当前目标地址和从target到此节点的偏移历史。
+#[derive(Clone)]
+struct PathNode {
+    /// 当前正在搜索指向此地址的指针
+    current_target: u64,
+    /// 偏移历史：offsets[0] 是从深度0到深度1的偏移，依此类推。
+    /// 构建链时需要反转以获得 root->target 的顺序
+    offset_history: Vec<i64>,
+    /// 路径中已访问的地址集合，用于检测循环引用
+    visited_addresses: HashSet<u64>,
+}
+
+impl PathNode {
+    fn new(target: u64) -> Self {
+        let mut visited = HashSet::with_capacity(8);
+        visited.insert(target);
+        Self {
+            current_target: target,
+            offset_history: Vec::new(),
+            visited_addresses: visited,
+        }
+    }
+
+    fn with_capacity(target: u64, capacity: usize) -> Self {
+        let mut visited = HashSet::with_capacity(capacity);
+        visited.insert(target);
+        Self {
+            current_target: target,
+            offset_history: Vec::with_capacity(capacity),
+            visited_addresses: visited,
+        }
+    }
+
+    fn depth(&self) -> usize {
+        self.offset_history.len()
+    }
+
+    /// 检查地址是否已在当前路径中访问过（循环引用）
+    fn is_visited(&self, address: u64) -> bool {
+        self.visited_addresses.contains(&address)
+    }
+
+    /// 创建子节点，带有给定的指针地址和偏移
+    fn child(&self, ptr_address: u64, offset: i64) -> Self {
+        let mut new_history = self.offset_history.clone();
+        new_history.push(offset);
+        let mut new_visited = self.visited_addresses.clone();
+        new_visited.insert(ptr_address);
+        Self {
+            current_target: ptr_address,
+            offset_history: new_history,
+            visited_addresses: new_visited,
+        }
+    }
+}
+
 /// 散射阶段发现的候选指针
 struct Candidate {
     /// 指向父节点目标的指针地址
@@ -109,7 +166,7 @@ where
             let parent = &current_layer[candidate.parent_idx];
 
             // 检查此指针是否来自静态模块
-            if let Some((module_name, module_index, base_offset)) = classify_pointer(candidate.ptr_address, static_modules) {
+            if let Some((module_name, module_index, base_offset)) = classify_pointer(candidate.ptr_address, static_modules, config.data_start, config.bss_start) {
                 // 找到一条完整链！
                 let mut chain = PointerChain::with_capacity(config.target_address, parent.depth() + 2);
 
@@ -133,7 +190,7 @@ where
             // 如果未达到最大深度，继续向上搜索
             if depth + 1 < config.max_depth {
                 // 只将非静态指针添加到下一层（或者如果不是scan_static_only则全部添加）
-                if !config.scan_static_only || classify_pointer(candidate.ptr_address, static_modules).is_none() {
+                if classify_pointer(candidate.ptr_address, static_modules, config.data_start, config.bss_start).is_none() {
                     next_layer.push(parent.child(candidate.ptr_address, candidate.offset));
                 }
             }

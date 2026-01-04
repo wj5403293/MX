@@ -1,5 +1,6 @@
 //! JNI methods for PointerScanner.
 
+use std::collections::HashMap;
 use crate::ext::jni::{JniResult, JniResultExt};
 use crate::pointer_scan::manager::POINTER_SCAN_MANAGER;
 use crate::pointer_scan::scanner::ScanRegion;
@@ -124,7 +125,7 @@ pub fn jni_start_pointer_scan(
         }
 
         // Assign indices to static modules with duplicate names
-        let mut name_counts: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
+        let mut name_counts: HashMap<String, u32> = HashMap::new();
         for module in &mut static_modules {
             let count = name_counts.entry(module.name.clone()).or_insert(0);
             module.index = *count;

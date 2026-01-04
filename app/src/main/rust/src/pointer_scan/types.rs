@@ -172,14 +172,12 @@ pub struct PointerScanConfig {
     pub max_offset: u32,
     /// Pointer alignment in bytes (default: 4)
     pub align: u32,
-    /// Only return chains starting from static modules
-    pub scan_static_only: bool,
-    /// Include heap regions in scan
-    pub include_heap: bool,
-    /// Include stack regions in scan
-    pub include_stack: bool,
     /// Use Layer-BFS to build pointer chain
-    pub is_layer_bfs: bool
+    pub is_layer_bfs: bool,
+    /// lookup Base Addr from start of .data
+    pub data_start: bool,
+    /// lookup Base Addr from start of .bss
+    pub bss_start: bool,
 }
 
 impl Default for PointerScanConfig {
@@ -189,10 +187,9 @@ impl Default for PointerScanConfig {
             max_depth: 5,
             max_offset: 0x1000,
             align: 4,
-            scan_static_only: true,
-            include_heap: true,
-            include_stack: false,
-            is_layer_bfs: false
+            is_layer_bfs: false,
+            data_start: true,
+            bss_start: false,
         }
     }
 }
