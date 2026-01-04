@@ -111,7 +111,7 @@ fn dfs_recursive(ctx: &DfsContext, tx: &Sender<PointerChain>, current_address: u
 
     let config = ctx.config;
     // 检查是否到达静态基址
-    if let Some((mod_name, mod_idx, base_offset)) = classify_pointer(current_address, ctx.static_modules, config.data_start, config.bss_start, config.max_depth)
+    if let Some((mod_name, mod_idx, base_offset)) = classify_pointer(current_address, ctx.static_modules, config.data_start, config.bss_start, config.max_offset)
     {
         // 构建链条
         let mut chain = PointerChain::with_capacity(ctx.config.target_address, offset_history.len() + 1);

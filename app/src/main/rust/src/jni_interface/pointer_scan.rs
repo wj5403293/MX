@@ -11,7 +11,7 @@ use jni::objects::{JLongArray, JObject, JObjectArray, JString};
 use jni::sys::{jboolean, jint, jlong, jobjectArray, JNI_FALSE, JNI_TRUE};
 use jni::JNIEnv;
 use jni_macro::jni_method;
-use log::{error, info};
+use log::{error, info, log_enabled, Level};
 
 /// Initialize the pointer scanner with a cache directory.
 #[jni_method(70, "moe/fuqiuluo/mamu/driver/PointerScanner", "nativeInit", "(Ljava/lang/String;)Z")]
@@ -124,12 +124,27 @@ pub fn jni_start_pointer_scan(
             }
         }
 
-        // Assign indices to static modules with duplicate names
+        // Assign indices and first_module_base_addr to static modules with duplicate names
+        // 同名模块共享第一个段的基址，用于计算统一的偏移
         let mut name_counts: HashMap<String, u32> = HashMap::new();
+        let mut first_base_addrs: HashMap<String, u64> = HashMap::new();
         for module in &mut static_modules {
             let count = name_counts.entry(module.name.clone()).or_insert(0);
             module.index = *count;
+            if *count == 0 {
+                // 记录该名称第一个模块的基址
+                first_base_addrs.insert(module.name.clone(), module.base_address);
+            }
+            // 所有同名模块共享第一个段的基址
+            module.first_module_base_addr = *first_base_addrs.get(&module.name).unwrap();
             *count += 1;
+        }
+
+        if log_enabled!(Level::Debug) {
+            info!("Static modules:");
+            for module in &static_modules {
+                info!("  {} [{}]: 0x{:X} - 0x{:X}", module.name, module.index, module.base_address, module.end_address);
+            }
         }
 
         info!(
