@@ -175,10 +175,8 @@ where
                 // 添加静态根
                 chain.push(PointerChainStep::static_root(module_name, module_index, base_offset as i64));
 
-                // 添加从静态指针到其目标的偏移
-                if candidate.offset != 0 {
-                    chain.push(PointerChainStep::dynamic_offset(candidate.offset));
-                }
+                // 添加从静态指针到其目标的偏移（即使是0也要添加，代表一次指针解引用）
+                chain.push(PointerChainStep::dynamic_offset(candidate.offset));
 
                 // 按反序添加中间偏移 (parent -> ... -> target)
                 for &offset in parent.offset_history.iter().rev() {
