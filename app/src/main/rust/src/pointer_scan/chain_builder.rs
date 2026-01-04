@@ -67,7 +67,8 @@ fn find_range_in_pointer_queue(queue: &MmapQueue<PointerData>, min_value: u64, m
 /// 负偏移：指针指向target上方
 fn find_pointers_to_range(pointer_lib: &MmapQueue<PointerData>, target: u64, max_offset: u32) -> Vec<(u64, i64)> {
     let min_value = target.saturating_sub(max_offset as u64);
-    let max_value = target.saturating_add(max_offset as u64 + 1); // 上界不包含
+    // let max_value = target.saturating_add(max_offset as u64 + 1); // 上界不包含
+    let max_value = target + 1;
 
     let (start_idx, end_idx) = find_range_in_pointer_queue(pointer_lib, min_value, max_value);
 
@@ -89,31 +90,34 @@ fn find_pointers_to_range(pointer_lib: &MmapQueue<PointerData>, target: u64, max
 
 /// 检查地址是否属于静态模块。
 /// 如果找到，返回 (模块名, 模块索引, 基址偏移)。
+///
+/// 注意：max_offset 检查使用相对于当前段的偏移，
+/// 但返回的偏移可以根据 data_start 设置使用不同的计算方式。
 fn classify_pointer(
-    address: u64, 
-    static_modules: &[VmStaticData], 
-    data_start: bool, 
-    bss_start: bool,
+    address: u64,
+    static_modules: &[VmStaticData],
+    data_start: bool,
+    _bss_start: bool,
     max_offset: u32,
 ) -> Option<(String, u32, u64)> {
     for module in static_modules {
         if module.contains(address) {
-            if bss_start {
-                // todo: 匹配.bss的基址
-                panic!("bss not yet implemented");
-            }
-
-            let offset = if data_start && module.index != 0 {
-                address.saturating_sub(module.first_module_base_addr)
-            } else {
-                module.offset_from_base(address)
-            };
-            
-            if offset > max_offset as u64 {
+            // 使用当前段的偏移进行 max_offset 检查
+            let local_offset = module.offset_from_base(address);
+            if local_offset > max_offset as u64 {
                 return None;
             }
 
-            return Some((module.name.clone(), module.index, offset));
+            // 计算返回的偏移：
+            // - 如果 data_start=true 且 index!=0，使用相对于第一个段的偏移（统一基址）
+            // - 否则使用相对于当前段的偏移
+            let display_offset = if data_start && module.index != 0 {
+                address.saturating_sub(module.first_module_base_addr)
+            } else {
+                local_offset
+            };
+
+            return Some((module.name.clone(), module.index, display_offset));
         }
     }
     None

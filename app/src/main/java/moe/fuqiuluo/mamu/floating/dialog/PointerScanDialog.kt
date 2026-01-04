@@ -150,10 +150,7 @@ class PointerScanDialog(
                     start = region.start,
                     end = region.end,
                     name = region.name,
-                    isStatic = (region.range == MemoryRange.Cd || region.range == MemoryRange.Cb || region.range == MemoryRange.Oa || region.range == MemoryRange.Xs || region.range == MemoryRange.Xa) || (
-                            region.range == MemoryRange.Xx && region.name.split("/").last()
-                                .let { it.startsWith("lib") && it.endsWith(".so") }
-                            )
+                    isStatic = (region.range == MemoryRange.Cd || region.range == MemoryRange.Cb || region.range == MemoryRange.Oa || region.range == MemoryRange.Xs || region.range == MemoryRange.Xa || region.range == MemoryRange.Xx)
                 )
             }
 
