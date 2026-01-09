@@ -301,18 +301,25 @@ class MemoryPreviewController(
                 // 保存当前可见的地址，以便在格式改变后恢复滚动位置
                 val layoutManager = binding.memoryPreviewRecyclerView.layoutManager as? LinearLayoutManager
                 val firstVisiblePosition = layoutManager?.findFirstVisibleItemPosition() ?: 0
-                val currentVisibleAddress = if (firstVisiblePosition >= 0) {
+                val firstVisibleView = layoutManager?.findViewByPosition(firstVisiblePosition)
+                val topOffset = firstVisibleView?.top ?: 0
+                
+                // 计算当前可见行对应的实际内存地址
+                val currentVisibleAddress = if (firstVisiblePosition >= 0 && firstVisiblePosition < adapter.getTotalRows()) {
                     adapter.rowToAddress(firstVisiblePosition)
                 } else null
                 
+                // 更新格式，这会改变 alignment
                 adapter.setFormats(currentFormats)
                 refreshCurrentView()
                 
-                // 恢复到之前可见的地址
+                // 根据相同的内存地址重新计算行号并滚动
                 if (currentVisibleAddress != null) {
                     val newRow = adapter.addressToRow(currentVisibleAddress)
-                    if (newRow >= 0 && newRow < adapter.getTotalRows()) {
-                        layoutManager?.scrollToPositionWithOffset(newRow, 0)
+                    val newTotalRows = adapter.getTotalRows()
+                    if (newRow >= 0 && newRow < newTotalRows) {
+                        // 保持相同的顶部偏移量以提供更平滑的体验
+                        layoutManager?.scrollToPositionWithOffset(newRow, topOffset)
                     }
                 }
             }
