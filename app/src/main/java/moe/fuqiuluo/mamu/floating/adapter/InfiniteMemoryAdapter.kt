@@ -96,9 +96,19 @@ class InfiniteMemoryAdapter(
     }
 
     fun setFormats(formats: List<MemoryDisplayFormat>) {
+        // 保存当前显示的地址范围（字节数）
+        val currentByteRange = totalRows.toLong() * alignment
+        
         currentFormats = formats
+        val oldAlignment = alignment
         alignment = MemoryDisplayFormat.calculateAlignment(formats)
         hexByteSize = MemoryDisplayFormat.calculateHexByteSize(formats)
+        
+        // 调整 totalRows 以保持相同的字节范围
+        if (oldAlignment != alignment && totalRows > 0) {
+            totalRows = (currentByteRange / alignment).toInt()
+        }
+        
         notifyDataSetChanged()
     }
 
