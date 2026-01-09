@@ -28,8 +28,9 @@ import kotlin.math.min
  * 1. 虚拟化显示：根据位置计算地址
  * 2. 页面对齐：native 读取时地址必须对齐到 PAGE_SIZE
  * 3. 缓存机制：缓存已读取的页面数据（最多4页）
- * 4. 边界扩展：滚动到边界时自动扩展地址范围
+ * 4. 边界扩展：滚动到边界时自动扩展地址范围（仅无限滚动模式）
  * 5. 预加载：跳转时预加载前、中、后三页
+ * 6. 固定页面模式：只显示一页内存，禁用边界扩展
  */
 class InfiniteMemoryAdapter(
     private val onRowClick: (MemoryPreviewItem.MemoryRow) -> Unit = {},
@@ -90,6 +91,9 @@ class InfiniteMemoryAdapter(
     private var lastBoundaryTriggerTime = 0L
     private var isExpandingTop = false
     private var isExpandingBottom = false
+    
+    // 是否启用无限滚动模式
+    private var infiniteScrollEnabled: Boolean = true
 
     init {
         setHasStableIds(true)
@@ -101,6 +105,19 @@ class InfiniteMemoryAdapter(
         hexByteSize = MemoryDisplayFormat.calculateHexByteSize(formats)
         notifyDataSetChanged()
     }
+
+    /**
+     * 设置是否启用无限滚动模式
+     * @param enabled true 为无限滚动模式，false 为固定页面模式
+     */
+    fun setInfiniteScrollEnabled(enabled: Boolean) {
+        infiniteScrollEnabled = enabled
+    }
+
+    /**
+     * 获取当前是否启用无限滚动模式
+     */
+    fun isInfiniteScrollEnabled(): Boolean = infiniteScrollEnabled
 
     /**
      * 设置地址范围并预加载数据
@@ -215,8 +232,12 @@ class InfiniteMemoryAdapter(
     /**
      * 检查是否接近边界，如果是则触发扩展
      * 包含防抖机制，避免频繁触发
+     * 注意：固定页面模式下不触发边界扩展
      */
     fun checkBoundary(firstVisiblePosition: Int, lastVisiblePosition: Int) {
+        // 固定页面模式下不触发边界扩展
+        if (!infiniteScrollEnabled) return
+        
         val now = System.currentTimeMillis()
         if (now - lastBoundaryTriggerTime < BOUNDARY_DEBOUNCE_MS) {
             return

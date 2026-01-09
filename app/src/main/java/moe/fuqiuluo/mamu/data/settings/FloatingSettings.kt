@@ -36,6 +36,7 @@ private const val KEY_KEYBOARD_STATE = "keyboard_state"
 private const val KEY_MEMORY_REGION_CACHE_INTERVAL = "memory_region_cache_interval_v2"
 private const val KEY_MEMORY_DISPLAY_FORMATS = "memory_display_formats"
 private const val KEY_COMPATIBILITY_MODE = "compatibility_mode"
+private const val KEY_MEMORY_PREVIEW_INFINITE_SCROLL = "memory_preview_infinite_scroll"
 
 private const val DEFAULT_OPACITY = 0.55f
 private const val DEFAULT_MEMORY_BUFFER_SIZE = 512
@@ -58,6 +59,7 @@ private const val DEFAULT_DIALOG_TRANSPARENCY_ENABLED = true // 默认启用dial
 private const val DEFAULT_KEYBOARD_STATE = 1 // 默认展开 (0=折叠, 1=展开, 2=功能)
 private const val DEFAULT_MEMORY_REGION_CACHE_INTERVAL = 3000 // 默认 500ms 缓存间隔
 private const val DEFAULT_COMPATIBILITY_MODE = false // 默认不启用兼容模式
+private const val DEFAULT_MEMORY_PREVIEW_INFINITE_SCROLL = false // 默认固定页面模式
 
 /**
  * 悬浮窗透明度 (0.0 - 1.0)
@@ -347,4 +349,15 @@ var MMKV.compatibilityMode: Boolean
     get() = decodeBool(KEY_COMPATIBILITY_MODE, DEFAULT_COMPATIBILITY_MODE)
     set(value) {
         encode(KEY_COMPATIBILITY_MODE, value)
+    }
+
+/**
+ * 内存预览无限滚动模式
+ * true = 无限滚动模式，可以向上下无限扩展
+ * false = 固定页面模式，只显示一页内存（base address 到 base address + PAGE_SIZE）
+ */
+var MMKV.memoryPreviewInfiniteScroll: Boolean
+    get() = decodeBool(KEY_MEMORY_PREVIEW_INFINITE_SCROLL, DEFAULT_MEMORY_PREVIEW_INFINITE_SCROLL)
+    set(value) {
+        encode(KEY_MEMORY_PREVIEW_INFINITE_SCROLL, value)
     }

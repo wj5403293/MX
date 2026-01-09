@@ -165,6 +165,49 @@
                     android:layout_marginVertical="@dimen/floating_spacing_xs"
                     app:dividerColor="@color/floating_divider" />
 
+                <!-- 内存预览无限滚动 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="@dimen/floating_spacing_sm">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <com.google.android.material.textview.MaterialTextView
+                            style="@style/FloatingText.Body"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/settings_memory_preview_infinite_scroll" />
+
+                        <com.google.android.material.textview.MaterialTextView
+                            style="@style/FloatingText.Caption.Secondary"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/floating_spacing_xxs"
+                            android:text="@string/settings_memory_preview_infinite_scroll_summary" />
+
+                    </LinearLayout>
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/switch_memory_preview_infinite_scroll"
+                        style="@style/FloatingSwitch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+
+                </LinearLayout>
+
+                <com.google.android.material.divider.MaterialDivider
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginVertical="@dimen/floating_spacing_xs"
+                    app:dividerColor="@color/floating_divider" />
+
                 <!-- 对进程隐藏Mamu -->
                 <LinearLayout
                     android:id="@+id/setting_hide_mamu"

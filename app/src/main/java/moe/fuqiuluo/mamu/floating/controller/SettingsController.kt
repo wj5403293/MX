@@ -26,6 +26,7 @@ import moe.fuqiuluo.mamu.data.settings.keyboardType
 import moe.fuqiuluo.mamu.data.settings.languageSelection
 import moe.fuqiuluo.mamu.data.settings.memoryAccessMode
 import moe.fuqiuluo.mamu.data.settings.memoryBufferSize
+import moe.fuqiuluo.mamu.data.settings.memoryPreviewInfiniteScroll
 import moe.fuqiuluo.mamu.data.settings.saveListUpdateInterval
 import moe.fuqiuluo.mamu.data.settings.selectedMemoryRanges
 import moe.fuqiuluo.mamu.data.settings.skipMemoryOption
@@ -64,6 +65,7 @@ class SettingsController(
         setupLanguage()
         setupTopMostLayer(mmkv)
         setupTabAnimation(mmkv)
+        setupMemoryPreviewInfiniteScroll(mmkv)
 
         subscribeToProcessStateEvents()
         subscribeToMemoryRangeChangedEvents()
@@ -330,6 +332,15 @@ class SettingsController(
             isChecked = mmkv.tabSwitchAnimation
             setOnCheckedChangeListener { _, isChecked ->
                 mmkv.tabSwitchAnimation = isChecked
+            }
+        }
+    }
+
+    private fun setupMemoryPreviewInfiniteScroll(mmkv: MMKV) {
+        binding.switchMemoryPreviewInfiniteScroll.apply {
+            isChecked = mmkv.memoryPreviewInfiniteScroll
+            setOnCheckedChangeListener { _, isChecked ->
+                mmkv.memoryPreviewInfiniteScroll = isChecked
             }
         }
     }

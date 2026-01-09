@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import moe.fuqiuluo.mamu.R
 import moe.fuqiuluo.mamu.data.settings.memoryDisplayFormats
+import moe.fuqiuluo.mamu.data.settings.memoryPreviewInfiniteScroll
 import moe.fuqiuluo.mamu.data.settings.memoryRegionCacheInterval
 import moe.fuqiuluo.mamu.databinding.FloatingMemoryPreviewLayoutBinding
 import moe.fuqiuluo.mamu.driver.LocalMemoryOps
@@ -89,9 +90,15 @@ class MemoryPreviewController(
         setupRecyclerView()
         setupStatusBar()
         updateFormatDisplay()
+        updateInfiniteScrollMode()
 
         subscribeToNavigateEvents()
         loadInitialPlaceholderPage()
+    }
+
+    private fun updateInfiniteScrollMode() {
+        val infiniteScrollEnabled = mmkv.memoryPreviewInfiniteScroll
+        adapter.setInfiniteScrollEnabled(infiniteScrollEnabled)
     }
 
     private fun setupAdapter() {
@@ -172,7 +179,16 @@ class MemoryPreviewController(
     private fun loadInitialPlaceholderPage() {
         currentStartAddress = 0L
         targetAddress = null
-        val defaultRows = (DEFAULT_PAGE_COUNT * PAGE_SIZE) / adapter.getAlignment()
+        
+        updateInfiniteScrollMode()
+        
+        val infiniteScrollEnabled = mmkv.memoryPreviewInfiniteScroll
+        val defaultRows = if (infiniteScrollEnabled) {
+            (DEFAULT_PAGE_COUNT * PAGE_SIZE) / adapter.getAlignment()
+        } else {
+            PAGE_SIZE / adapter.getAlignment()
+        }
+        
         adapter.setAddressRange(0L, defaultRows)
         updateEmptyState()
     }
@@ -363,24 +379,42 @@ class MemoryPreviewController(
         targetAddress = requestedAddress
 
         updateMemoryRegionsCache()
-
-        // 计算三页的行数
-        val defaultRows = (DEFAULT_PAGE_COUNT * PAGE_SIZE) / adapter.getAlignment()
         
-        // 根据是否页面对齐决定起始地址
-        val startAddress = if (isPageAligned) {
-            // 页面对齐：从当前页开始，显示当前页+后两页
-            pageStartAddress
+        // 更新无限滚动模式设置
+        updateInfiniteScrollMode()
+        
+        val infiniteScrollEnabled = mmkv.memoryPreviewInfiniteScroll
+        
+        if (infiniteScrollEnabled) {
+            // 无限滚动模式：计算三页的行数
+            val defaultRows = (DEFAULT_PAGE_COUNT * PAGE_SIZE) / adapter.getAlignment()
+            
+            // 根据是否页面对齐决定起始地址
+            val startAddress = if (isPageAligned) {
+                // 页面对齐：从当前页开始，显示当前页+后两页
+                pageStartAddress
+            } else {
+                // 非页面对齐：从前一页开始，目标地址在中间
+                if (pageStartAddress >= PAGE_SIZE) pageStartAddress - PAGE_SIZE else 0L
+            }
+            
+            adapter.setAddressRange(startAddress, defaultRows)
+            adapter.setHighlightAddress(requestedAddress)
+            adapter.setMemoryRegions(memoryRegions)
+
+            scrollToAddress(requestedAddress, isPageAligned)
         } else {
-            // 非页面对齐：从前一页开始，目标地址在中间
-            if (pageStartAddress >= PAGE_SIZE) pageStartAddress - PAGE_SIZE else 0L
+            // 固定页面模式：只显示一页（base address 到 base address + PAGE_SIZE）
+            val singlePageRows = PAGE_SIZE / adapter.getAlignment()
+            
+            adapter.setAddressRange(pageStartAddress, singlePageRows)
+            adapter.setHighlightAddress(requestedAddress)
+            adapter.setMemoryRegions(memoryRegions)
+            
+            // 滚动到目标地址在页面内的位置
+            scrollToAddress(requestedAddress, false)
         }
         
-        adapter.setAddressRange(startAddress, defaultRows)
-        adapter.setHighlightAddress(requestedAddress)
-        adapter.setMemoryRegions(memoryRegions)
-
-        scrollToAddress(requestedAddress, isPageAligned)
         notification.showSuccess("已跳转到地址: ${String.format("%X", requestedAddress)}")
     }
 
