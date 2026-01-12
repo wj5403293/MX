@@ -354,7 +354,6 @@ class FloatingWindowService : Service(), ProcessDeathMonitor.Callback {
         // 如果当前有绑定的进程，先解绑
         if (WuwaDriver.isProcessBound) {
             FreezeManager.clearAll()
-            FreezeManager.stop()
             WuwaDriver.unbindProcess()
             ProcessDeathMonitor.stop()
         }
@@ -415,7 +414,6 @@ class FloatingWindowService : Service(), ProcessDeathMonitor.Callback {
 
         // 停止冻结管理器并清空冻结
         FreezeManager.clearAll()
-        FreezeManager.stop()
 
         WuwaDriver.unbindProcess()
         ProcessDeathMonitor.stop()
@@ -436,7 +434,6 @@ class FloatingWindowService : Service(), ProcessDeathMonitor.Callback {
 
         // 停止冻结管理器并清空冻结
         FreezeManager.clearAll()
-        FreezeManager.stop()
 
         if (WuwaDriver.isProcessBound) {
             WuwaDriver.unbindProcess()

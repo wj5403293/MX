@@ -28,6 +28,7 @@ object FreezeManager {
      * 停止冻结循环
      * 应在解绑进程前调用
      */
+    @Deprecated("非必要情况下禁止调用")
     fun stop() {
         nativeStop()
     }
