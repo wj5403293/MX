@@ -153,6 +153,23 @@ class InfiniteMemoryAdapter(
         loadPageIfNeeded(nextPage)
     }
 
+    // 用于延迟通知的 Handler
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    
+    // 关联的 RecyclerView 引用
+    private var recyclerView: RecyclerView? = null
+    
+    override fun onAttachedToRecyclerView(recyclerView: RecyclerView) {
+        super.onAttachedToRecyclerView(recyclerView)
+        this.recyclerView = recyclerView
+    }
+    
+    override fun onDetachedFromRecyclerView(recyclerView: RecyclerView) {
+        super.onDetachedFromRecyclerView(recyclerView)
+        this.recyclerView = null
+        handler.removeCallbacksAndMessages(null)
+    }
+
     /**
      * 如果页面未缓存则加载
      */
@@ -166,7 +183,20 @@ class InfiniteMemoryAdapter(
             loadingPages.remove(pageAddress)
             pageCache[pageAddress] = data
             
-            // 通知数据更新
+            // 延迟通知数据更新，避免在 RecyclerView 布局期间调用
+            safeNotifyPageDataChanged(pageAddress)
+        }
+    }
+    
+    /**
+     * 安全地通知页面数据变化
+     * 如果 RecyclerView 正在布局或滚动，则延迟到下一帧执行
+     */
+    private fun safeNotifyPageDataChanged(pageAddress: Long) {
+        val rv = recyclerView
+        if (rv != null && (rv.isComputingLayout || rv.isAnimating)) {
+            handler.post { notifyPageDataChanged(pageAddress) }
+        } else {
             notifyPageDataChanged(pageAddress)
         }
     }
