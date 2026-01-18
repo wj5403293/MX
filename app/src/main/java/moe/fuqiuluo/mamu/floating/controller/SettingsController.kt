@@ -347,6 +347,12 @@ class SettingsController(
             isChecked = mmkv.memoryPreviewInfiniteScroll
             setOnCheckedChangeListener { _, isChecked ->
                 mmkv.memoryPreviewInfiniteScroll = isChecked
+                notification.showSuccess(
+                    context.getString(
+                        if (isChecked) R.string.success_infinite_scroll_enabled
+                        else R.string.success_infinite_scroll_disabled
+                    )
+                )
             }
         }
     }

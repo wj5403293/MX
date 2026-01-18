@@ -71,6 +71,8 @@
     <string name="settings_tab_switch_animation">Tab Switch Animation</string>
     <string name="settings_memory_preview_infinite_scroll">Memory Preview Infinite Scroll</string>
     <string name="settings_memory_preview_infinite_scroll_summary">When disabled, only shows one page (base address to base address + page size)</string>
+    <string name="success_infinite_scroll_enabled">Infinite scroll enabled, takes effect on next address jump</string>
+    <string name="success_infinite_scroll_disabled">Infinite scroll disabled, takes effect on next address jump</string>
 
     <!-- Dialog Related -->
     <string name="dialog_select_operator">Select Operator</string>

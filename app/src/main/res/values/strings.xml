@@ -75,6 +75,8 @@
     <string name="settings_tab_switch_animation">Tab切换动画</string>
     <string name="settings_memory_preview_infinite_scroll">内存预览无限滚动</string>
     <string name="settings_memory_preview_infinite_scroll_summary">关闭后只显示一页内存（基址到基址+页大小）</string>
+    <string name="success_infinite_scroll_enabled">已启用无限滚动，重新跳转地址后生效</string>
+    <string name="success_infinite_scroll_disabled">已关闭无限滚动，重新跳转地址后生效</string>
 
     <!-- Dialog相关 -->
     <string name="dialog_select_operator">选择操作符</string>
