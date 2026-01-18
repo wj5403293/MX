@@ -60,14 +60,16 @@ fn format_value(bytes: &[u8], typ: ValueType) -> String {
     match typ {
         ValueType::Byte => {
             if bytes.len() >= 1 {
-                format!("{}", bytes[0])
+                // 使用有符号类型以正确显示负数
+                format!("{}", bytes[0] as i8)
             } else {
                 "N/A".to_string()
             }
         },
         ValueType::Word => {
             if bytes.len() >= 2 {
-                let value = u16::from_le_bytes([bytes[0], bytes[1]]);
+                // 使用有符号类型以正确显示负数
+                let value = i16::from_le_bytes([bytes[0], bytes[1]]);
                 format!("{}", value)
             } else {
                 "N/A".to_string()
@@ -75,7 +77,8 @@ fn format_value(bytes: &[u8], typ: ValueType) -> String {
         },
         ValueType::Dword | ValueType::Auto | ValueType::Xor => {
             if bytes.len() >= 4 {
-                let value = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+                // 使用有符号类型以正确显示负数
+                let value = i32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
                 format!("{}", value)
             } else {
                 "N/A".to_string()
@@ -83,7 +86,8 @@ fn format_value(bytes: &[u8], typ: ValueType) -> String {
         },
         ValueType::Qword => {
             if bytes.len() >= 8 {
-                let value = u64::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]]);
+                // 使用有符号类型以正确显示负数
+                let value = i64::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]]);
                 format!("{}", value)
             } else {
                 "N/A".to_string()

@@ -86,6 +86,11 @@ impl<'a> Lexer<'a> {
         let mut is_hex = false;
         let mut has_decimal_point = false;
 
+        // 处理可选的负号前缀
+        if self.peek() == Some(b'-') {
+            self.pos += 1;
+        }
+
         while let Some(ch) = self.peek() {
             match ch {
                 b'0'..=b'9' | b',' => {
@@ -158,6 +163,14 @@ impl<'a> Lexer<'a> {
                     }
                 }
                 b'0'..=b'9' => self.read_number().map(Some),
+                b'-' => {
+                    // 检查下一个字符是否为数字（支持负数）
+                    if self.peek_at(1).map_or(false, |c| c.is_ascii_digit()) {
+                        self.read_number().map(Some)
+                    } else {
+                        Err(format!("Unexpected character: {}", ch as char))
+                    }
+                }
                 b'A'..=b'Z' | b'a'..=b'z' => {
                     let start_pos = self.pos;
                     let result = self.read_number();
@@ -267,5 +280,54 @@ mod tests {
         assert!(matches!(tokens[0], Token::Number("1.0", false)));
         assert!(matches!(tokens[1], Token::Tilde));
         assert!(matches!(tokens[2], Token::Number("10.5", false)));
+    }
+
+    #[test]
+    fn test_negative_numbers() {
+        // 测试单个负数
+        let mut lexer = Lexer::new("-100");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert!(matches!(tokens[0], Token::Number("-100", false)));
+
+        // 测试负数解析
+        assert_eq!(parse_number("-100", false).unwrap(), -100);
+        assert_eq!(parse_number("-1,000", false).unwrap(), -1000);
+
+        // 测试负浮点数
+        assert_eq!(parse_float("-3.14", false).unwrap(), -3.14);
+        assert_eq!(parse_float("-1,234.56", false).unwrap(), -1234.56);
+    }
+
+    #[test]
+    fn test_negative_number_range() {
+        // 测试负数范围搜索
+        let mut lexer = Lexer::new("-100~100");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 3);
+        assert!(matches!(tokens[0], Token::Number("-100", false)));
+        assert!(matches!(tokens[1], Token::Tilde));
+        assert!(matches!(tokens[2], Token::Number("100", false)));
+
+        // 测试两边都是负数的范围搜索
+        let mut lexer2 = Lexer::new("-100~-50");
+        let tokens2 = lexer2.tokenize().unwrap();
+        assert_eq!(tokens2.len(), 3);
+        assert!(matches!(tokens2[0], Token::Number("-100", false)));
+        assert!(matches!(tokens2[1], Token::Tilde));
+        assert!(matches!(tokens2[2], Token::Number("-50", false)));
+    }
+
+    #[test]
+    fn test_negative_number_group() {
+        // 测试负数组搜索
+        let mut lexer = Lexer::new("-10;0;10");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 5);
+        assert!(matches!(tokens[0], Token::Number("-10", false)));
+        assert!(matches!(tokens[1], Token::Semicolon));
+        assert!(matches!(tokens[2], Token::Number("0", false)));
+        assert!(matches!(tokens[3], Token::Semicolon));
+        assert!(matches!(tokens[4], Token::Number("10", false)));
     }
 }
