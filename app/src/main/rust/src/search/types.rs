@@ -215,7 +215,13 @@ impl SearchValue {
                     },
                     _ => return Err(anyhow!("Invalid float size: {}", size)),
                 };
-                Ok((*value - other_value).abs() < f64::EPSILON)
+                // 使用类型相关的容差：f32 精度较低，需要更大的 epsilon
+                let epsilon = match size {
+                    4 => f32::EPSILON as f64,  // Float (f32) 使用 f32::EPSILON (~1.19e-7)
+                    8 => f64::EPSILON,          // Double (f64) 使用 f64::EPSILON (~2.22e-16)
+                    _ => f64::EPSILON,
+                };
+                Ok((*value - other_value).abs() < epsilon)
             },
             SearchValue::RangeInt {
                 start,
