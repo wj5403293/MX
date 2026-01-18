@@ -10,6 +10,7 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet
 import moe.fuqiuluo.mamu.databinding.ItemMemoryPreviewBinding
+import moe.fuqiuluo.mamu.databinding.ItemMemoryPreviewNavigationBinding
 import moe.fuqiuluo.mamu.driver.Disassembler
 import moe.fuqiuluo.mamu.driver.LocalMemoryOps
 import moe.fuqiuluo.mamu.floating.data.model.DisplayMemRegionEntry
@@ -37,18 +38,22 @@ class InfiniteMemoryAdapter(
     private val onRowLongClick: (MemoryPreviewItem.MemoryRow) -> Boolean = { false },
     private val onSelectionChanged: (Int) -> Unit = {},
     private val onDataRequest: (pageAlignedAddress: Long, callback: (ByteArray?) -> Unit) -> Unit,
-    private val onBoundaryReached: ((isTop: Boolean) -> Unit)? = null
-) : RecyclerView.Adapter<InfiniteMemoryAdapter.MemoryRowViewHolder>() {
+    private val onBoundaryReached: ((isTop: Boolean) -> Unit)? = null,
+    private val onNavigationClick: (targetAddress: Long, isNext: Boolean) -> Unit = { _, _ -> }
+) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
         val PAGE_SIZE = LocalMemoryOps.getPageSize()
         private const val TAG = "InfiniteMemoryAdapter"
         private val HEX_CHARS = "0123456789ABCDEF".toCharArray()
-        
+
         private const val MAX_CACHED_PAGES = 4
         private const val BOUNDARY_THRESHOLD = 20  // 距离边界多少行时触发扩展
         private const val BOUNDARY_DEBOUNCE_MS = 200L  // 边界触发防抖时间
-        
+
+        const val VIEW_TYPE_MEMORY_ROW = 0
+        const val VIEW_TYPE_NAVIGATION = 1
+
         const val PAYLOAD_SELECTION_CHANGED = "selection_changed"
         const val PAYLOAD_DATA_UPDATED = "data_updated"
     }
@@ -401,27 +406,87 @@ class InfiniteMemoryAdapter(
 
     // ==================== RecyclerView.Adapter ====================
 
-    override fun getItemCount(): Int = totalRows
-
-    override fun getItemId(position: Int): Long = rowToAddress(position)
-
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MemoryRowViewHolder {
-        val binding = ItemMemoryPreviewBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return MemoryRowViewHolder(binding)
+    override fun getItemCount(): Int {
+        return if (infiniteScrollEnabled) {
+            totalRows
+        } else {
+            // 固定页面模式：顶部导航 + 内存行 + 底部导航
+            totalRows + 2
+        }
     }
 
-    override fun onBindViewHolder(holder: MemoryRowViewHolder, position: Int) {
-        holder.bind(position)
+    override fun getItemViewType(position: Int): Int {
+        if (!infiniteScrollEnabled) {
+            when (position) {
+                0 -> return VIEW_TYPE_NAVIGATION  // 上一页
+                itemCount - 1 -> return VIEW_TYPE_NAVIGATION  // 下一页
+            }
+        }
+        return VIEW_TYPE_MEMORY_ROW
     }
 
-    override fun onBindViewHolder(holder: MemoryRowViewHolder, position: Int, payloads: MutableList<Any>) {
+    override fun getItemId(position: Int): Long {
+        if (!infiniteScrollEnabled) {
+            when (position) {
+                0 -> return Long.MIN_VALUE  // 上一页导航
+                itemCount - 1 -> return Long.MAX_VALUE  // 下一页导航
+            }
+            // 内存行位置需要偏移1（因为位置0是上一页导航）
+            return rowToAddress(position - 1)
+        }
+        return rowToAddress(position)
+    }
+
+    /**
+     * 将adapter位置转换为实际的内存行索引
+     * 在非无限滚动模式下需要考虑导航项的偏移
+     */
+    private fun positionToRowIndex(position: Int): Int {
+        return if (infiniteScrollEnabled) {
+            position
+        } else {
+            position - 1  // 减去顶部导航项
+        }
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        val inflater = LayoutInflater.from(parent.context)
+        return when (viewType) {
+            VIEW_TYPE_NAVIGATION -> {
+                val binding = ItemMemoryPreviewNavigationBinding.inflate(inflater, parent, false)
+                NavigationViewHolder(binding)
+            }
+            else -> {
+                val binding = ItemMemoryPreviewBinding.inflate(inflater, parent, false)
+                MemoryRowViewHolder(binding)
+            }
+        }
+    }
+
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        when (holder) {
+            is NavigationViewHolder -> {
+                val isNext = position == itemCount - 1
+                holder.bind(isNext)
+            }
+            is MemoryRowViewHolder -> {
+                val rowIndex = positionToRowIndex(position)
+                holder.bind(rowIndex)
+            }
+        }
+    }
+
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int, payloads: MutableList<Any>) {
         if (payloads.isEmpty()) {
             onBindViewHolder(holder, position)
         } else {
-            for (payload in payloads) {
-                when (payload) {
-                    PAYLOAD_SELECTION_CHANGED -> holder.updateSelection(position)
-                    PAYLOAD_DATA_UPDATED -> holder.bind(position)
+            if (holder is MemoryRowViewHolder) {
+                val rowIndex = positionToRowIndex(position)
+                for (payload in payloads) {
+                    when (payload) {
+                        PAYLOAD_SELECTION_CHANGED -> holder.updateSelection(rowIndex)
+                        PAYLOAD_DATA_UPDATED -> holder.bind(rowIndex)
+                    }
                 }
             }
         }
@@ -753,6 +818,44 @@ class InfiniteMemoryAdapter(
                 }
             }
             return null
+        }
+    }
+
+    // ==================== NavigationViewHolder ====================
+
+    @SuppressLint("SetTextI18n")
+    inner class NavigationViewHolder(
+        private val binding: ItemMemoryPreviewNavigationBinding
+    ) : RecyclerView.ViewHolder(binding.root) {
+
+        private var isNextPage: Boolean = false
+
+        init {
+            binding.root.setOnClickListener {
+                val targetAddress = if (isNextPage) {
+                    // 下一页：当前基地址 + 一页大小
+                    baseAddress + PAGE_SIZE
+                } else {
+                    // 上一页：当前基地址 - 一页大小（最小为0）
+                    if (baseAddress >= PAGE_SIZE) baseAddress - PAGE_SIZE else 0L
+                }
+                onNavigationClick(targetAddress, isNextPage)
+            }
+        }
+
+        fun bind(isNext: Boolean) {
+            isNextPage = isNext
+            val targetAddress = if (isNext) {
+                baseAddress + PAGE_SIZE
+            } else {
+                if (baseAddress >= PAGE_SIZE) baseAddress - PAGE_SIZE else 0L
+            }
+            val formattedAddress = targetAddress.toString(16).uppercase().padStart(8, '0')
+            if (isNext) {
+                binding.navigationText.text = "下一页 → $formattedAddress"
+            } else {
+                binding.navigationText.text = "← 上一页 $formattedAddress"
+            }
         }
     }
 

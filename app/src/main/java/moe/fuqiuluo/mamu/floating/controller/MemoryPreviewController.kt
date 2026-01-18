@@ -117,6 +117,9 @@ class MemoryPreviewController(
             },
             onBoundaryReached = { isTop ->
                 handleBoundaryReached(isTop)
+            },
+            onNavigationClick = { targetAddress, isNext ->
+                jumpToAddressForNavigation(targetAddress, isNext)
             }
         )
         adapter.setFormats(currentFormats)
@@ -419,6 +422,57 @@ class MemoryPreviewController(
         }
         
         notification.showSuccess("已跳转到地址: ${String.format("%X", requestedAddress)}")
+    }
+
+    /**
+     * 专门用于上一页/下一页导航的跳转方法
+     * @param targetAddress 目标页面的起始地址
+     * @param isNext true 表示下一页（滚动到顶部），false 表示上一页（滚动到底部）
+     */
+    private fun jumpToAddressForNavigation(targetAddress: Long, isNext: Boolean) {
+        if (!WuwaDriver.isProcessBound) {
+            notification.showError("未绑定进程")
+            return
+        }
+
+        val pageStartAddress = (targetAddress / PAGE_SIZE) * PAGE_SIZE
+
+        if (!isNavigating) {
+            val currentHistoryAddress = if (navigationIndex >= 0 && navigationIndex < navigationHistory.size) {
+                navigationHistory[navigationIndex]
+            } else -1L
+            if (targetAddress != currentHistoryAddress) {
+                addToNavigationHistory(targetAddress)
+            }
+        }
+
+        currentStartAddress = pageStartAddress
+        this.targetAddress = targetAddress
+
+        updateMemoryRegionsCache()
+        updateInfiniteScrollMode()
+
+        // 固定页面模式：只显示一页
+        val singlePageRows = PAGE_SIZE / adapter.getAlignment()
+
+        adapter.setAddressRange(pageStartAddress, singlePageRows)
+        adapter.setHighlightAddress(null)  // 导航时不高亮
+        adapter.setMemoryRegions(memoryRegions)
+
+        // 根据导航方向滚动到对应位置
+        val layoutManager = binding.memoryPreviewRecyclerView.layoutManager as? LinearLayoutManager
+        if (layoutManager != null) {
+            if (isNext) {
+                // 下一页：滚动到第一个内存行（位置1，因为位置0是上一页导航）
+                layoutManager.scrollToPositionWithOffset(1, 0)
+            } else {
+                // 上一页：滚动到最后一个内存行（位置 = singlePageRows，因为位置0是导航，最后一个导航在 singlePageRows+1）
+                layoutManager.scrollToPositionWithOffset(singlePageRows, 0)
+            }
+        }
+
+        val direction = if (isNext) "下一页" else "上一页"
+        notification.showSuccess("$direction: ${String.format("%X", pageStartAddress)}")
     }
 
     private fun scrollToAddress(address: Long, showAtTop: Boolean = false) {
