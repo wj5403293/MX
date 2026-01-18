@@ -8,7 +8,7 @@
     android:background="@drawable/dialog_background"
     android:orientation="vertical"
     android:padding="@dimen/floating_spacing_lg"
-    app:maxHeightPercent="0.85"
+    app:maxHeightPercent="0.9"
     app:maxWidthPercent="0.9">
 
     <!-- 上层：左右分栏（内容 + 键盘） -->

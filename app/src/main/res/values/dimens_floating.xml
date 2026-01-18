@@ -16,6 +16,7 @@
     <dimen name="floating_height_tab">48dp</dimen>
     <dimen name="floating_height_button">48dp</dimen>
     <dimen name="floating_height_button_sm">40dp</dimen>
+    <dimen name="floating_height_button_xs">36dp</dimen>  <!-- 超小按钮高度 -->
     <dimen name="floating_height_input">48dp</dimen>
     <dimen name="floating_height_list_item">56dp</dimen>
     <dimen name="floating_height_list_item_sm">48dp</dimen>
