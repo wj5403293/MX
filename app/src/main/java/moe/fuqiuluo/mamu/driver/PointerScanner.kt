@@ -252,6 +252,12 @@ object PointerScanner {
     fun getChainCount(): Long = nativeGetChainCount()
 
     /**
+     * Get the output file path where scan results were written.
+     * Returns empty string if no scan result available.
+     */
+    fun getOutputFilePath(): String = nativeGetOutputFilePath()
+
+    /**
      * Get a range of chain results.
      * @param start Starting index.
      * @param count Number of results to retrieve.
@@ -313,6 +319,7 @@ object PointerScanner {
     private external fun nativeIsScanning(): Boolean
     private external fun nativeRequestCancel()
     private external fun nativeGetChainCount(): Long
+    private external fun nativeGetOutputFilePath(): String
     private external fun nativeGetChains(start: Int, count: Int): Array<PointerChainResult>
     private external fun nativeClear()
     private external fun nativeGetPhase(): Int

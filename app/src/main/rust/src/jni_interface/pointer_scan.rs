@@ -202,77 +202,49 @@ pub fn jni_cancel_pointer_scan(_env: JNIEnv, _class: JObject) {
 #[jni_method(70, "moe/fuqiuluo/mamu/driver/PointerScanner", "nativeGetChainCount", "()J")]
 pub fn jni_get_chain_count(_env: JNIEnv, _class: JObject) -> jlong {
     match POINTER_SCAN_MANAGER.read() {
-        Ok(manager) => manager.get_chain_count() as jlong,
+        Ok(manager) => {
+            if let Some(result) = manager.get_scan_result() {
+                result.total_count as jlong
+            } else {
+                0
+            }
+        },
         Err(_) => 0,
     }
 }
 
+/// Get the output file path of the scan result.
+#[jni_method(70, "moe/fuqiuluo/mamu/driver/PointerScanner", "nativeGetOutputFilePath", "()Ljava/lang/String;")]
+pub fn jni_get_output_file_path(mut env: JNIEnv, _class: JObject) -> jni::sys::jstring {
+    (|| -> JniResult<jni::sys::jstring> {
+        let manager = POINTER_SCAN_MANAGER
+            .read()
+            .map_err(|_| anyhow!("Failed to acquire PointerScanManager read lock"))?;
+
+        let path = manager.get_scan_result()
+            .map(|r| r.output_file)
+            .unwrap_or_default();
+
+        let jstr = env.new_string(&path)?;
+        Ok(jstr.into_raw())
+    })()
+    .or_throw(&mut env)
+}
+
 /// Get a range of chain results.
+/// @deprecated Results are now written directly to file. Use nativeGetOutputFilePath() instead.
 #[jni_method(
     70,
     "moe/fuqiuluo/mamu/driver/PointerScanner",
     "nativeGetChains",
     "(II)[Lmoe/fuqiuluo/mamu/driver/PointerChainResult;"
 )]
-pub fn jni_get_chains(mut env: JNIEnv, _class: JObject, start: jint, count: jint) -> jobjectArray {
+pub fn jni_get_chains(mut env: JNIEnv, _class: JObject, _start: jint, _count: jint) -> jobjectArray {
     (|| -> JniResult<jobjectArray> {
-        let manager = POINTER_SCAN_MANAGER
-            .read()
-            .map_err(|_| anyhow!("Failed to acquire PointerScanManager read lock"))?;
-
-        let chains = manager.get_chain_results(start as usize, count as usize);
-
-        // Find the PointerChainResult class
+        // 结果现在直接写入文件，此方法返回空数组
+        // Results are now written directly to file, this method returns empty array
         let chain_class = env.find_class("moe/fuqiuluo/mamu/driver/PointerChainResult")?;
-
-        // Create the result array
-        let result_array = env.new_object_array(chains.len() as i32, &chain_class, JObject::null())?;
-
-        for (i, chain) in chains.iter().enumerate() {
-            // Format the chain as a string
-            let chain_string = chain.format();
-            let chain_jstring = env.new_string(&chain_string)?;
-
-            // Create offset array
-            let offsets: Vec<i64> = chain.steps.iter().map(|s| s.offset as i64).collect();
-            let offset_array = env.new_long_array(offsets.len() as i32)?;
-            env.set_long_array_region(&offset_array, 0, &offsets)?;
-
-            // Get module name (first step should be static)
-            let module_name = chain.steps.first().and_then(|s| s.module_name.as_ref()).map(|s| s.as_str()).unwrap_or("");
-            let module_jstring = env.new_string(module_name)?;
-
-            // Get module index
-            let module_index = chain.steps.first().map(|s| s.module_index as i32).unwrap_or(0);
-
-            // Create PointerChainResult object
-            // data class PointerChainResult(
-            //     /** Formatted chain string (e.g., "libil2cpp.so[0]+0x1A2B3C0->+0x18->+0x48") */
-            //     val chainString: String,
-            //     /** Module name at chain root (e.g., "libil2cpp.so") */
-            //     val moduleName: String,
-            //     /** Module index for duplicate module names */
-            //     val moduleIndex: Int,
-            //     /** All offsets in the chain, including base offset */
-            //     val offsets: LongArray,
-            //     /** The final target address this chain points to */
-            //     val targetAddress: Long
-            // )
-            let chain_obj = env.new_object(
-                &chain_class,
-                "(Ljava/lang/String;Ljava/lang/String;I[JJ)V",
-                &[
-                    (&chain_jstring).into(),
-                    (&module_jstring).into(),
-                    module_index.into(),
-                    (&offset_array).into(),
-                    (chain.target_address as jlong).into(),
-                ],
-            )?;
-
-            env.set_object_array_element(&result_array, i as i32, chain_obj)?;
-        }
-
+        let result_array = env.new_object_array(0, &chain_class, JObject::null())?;
         Ok(result_array.into_raw())
     })()
     .or_throw(&mut env)

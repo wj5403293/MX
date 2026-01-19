@@ -8,11 +8,13 @@
 //!
 //! The module is organized into the following components:
 //!
-//! - `types`: Core data structures (PointerData, PointerChain, etc.)
-//! - `storage`: Memory-mapped storage for large pointer datasets
+//! - `types`: Core data structures (PointerData, PointerChain, PointerDir, etc.)
+//! - `storage`: Memory-mapped storage for large pointer datasets (legacy, uses rkyv)
+//! - `mapqueue_v2`: New MapQueue implementation (tmpfile + mmap, no serialization)
 //! - `shared_buffer`: Progress communication with Kotlin via shared memory
 //! - `scanner`: Phase 1 - Scan all memory for valid pointers
 //! - `chain_builder`: Phase 2 - Build pointer chains from target address
+//!   - `bfs_v2`: BFS algorithm from PointerScan-rust (implicit tree structure)
 //! - `manager`: Async task management and coordination
 //!
 //! # Usage
@@ -36,6 +38,7 @@
 
 pub mod chain_builder;
 pub mod manager;
+pub mod mapqueue_v2;
 pub mod scanner;
 pub mod shared_buffer;
 pub mod storage;
@@ -43,6 +46,7 @@ pub mod types;
 
 // Re-export commonly used types
 pub use manager::POINTER_SCAN_MANAGER;
+pub use mapqueue_v2::MapQueue;
 pub use shared_buffer::PointerScanSharedBuffer;
 pub use storage::MmapQueue;
 pub use types::{*};

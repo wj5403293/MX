@@ -1100,6 +1100,7 @@ dependencies = [
  "memmap2",
  "nix",
  "obfstr",
+ "once_cell",
  "rand 0.10.0-rc.5",
  "rayon",
  "reqwest",

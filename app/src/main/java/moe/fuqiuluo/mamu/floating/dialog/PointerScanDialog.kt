@@ -258,31 +258,13 @@ class PointerScanDialog(
         progressDialog = null
 
         val chainCount = PointerScanner.getChainCount()
-        notification.showSuccess(
-            context.getString(
-                R.string.success_pointer_scan_complete, chainCount.toInt()
-            )
-        )
+        val outputFile = PointerScanner.getOutputFilePath()
 
-        if (chainCount > 0) {
-            // 加载结果并通知回调（应用数量限制）
-            scanScope.launch(Dispatchers.IO) {
+        // 使用通知显示结果
+        notification.showSuccess("扫描完成: 找到 $chainCount 条指针链\n结果保存至: $outputFile")
 
-                var actualCount =
-                    if (maxResults != 0) min(chainCount, maxResults.toLong()).toInt() else {
-                        chainCount
-                    }.toInt()
-                val mmkv = MMKV.defaultMMKV()
-                actualCount = mmkv.searchPageSize.coerceAtMost(actualCount)
-
-                Log.d(TAG, "搜索结果数 $chainCount $actualCount $maxResults")
-
-                val chains = PointerScanner.getChains(0, actualCount)
-                withContext(Dispatchers.Main) {
-                    onScanCompleted?.invoke(cacheMemoryRanges, chains.toList())
-                }
-            }
-        }
+        // 通知回调（传递空列表，因为结果已写入文件）
+        onScanCompleted?.invoke(cacheMemoryRanges, emptyList())
     }
 
     private fun onScanCancelled() {

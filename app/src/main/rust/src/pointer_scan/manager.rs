@@ -5,14 +5,14 @@
 //! manages async execution, and provides JNI-accessible state.
 
 use crate::core::globals::TOKIO_RUNTIME;
-use crate::pointer_scan::chain_builder;
+use crate::pointer_scan::chain_builder::bfs_v2::BfsV2Scanner;
+use crate::pointer_scan::mapqueue_v2;
 use crate::pointer_scan::scanner::{self, ScanRegion};
 use crate::pointer_scan::shared_buffer::PointerScanSharedBuffer;
-use crate::pointer_scan::storage::MmapQueue;
-use crate::pointer_scan::types::{PointerChain, PointerData, PointerScanConfig, ScanErrorCode, ScanPhase, VmStaticData};
+use crate::pointer_scan::types::{PointerData, PointerScanConfig, ScanErrorCode, ScanPhase, VmStaticData};
 use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
-use log::{error, info, log_enabled, warn, Level};
+use log::{error, info, log_enabled, Level};
 use std::path::PathBuf;
 use std::sync::RwLock;
 use tokio::task::JoinHandle;
@@ -22,12 +22,17 @@ lazy_static! {
     pub static ref POINTER_SCAN_MANAGER: RwLock<PointerScanManager> = RwLock::new(PointerScanManager::new());
 }
 
+/// 扫描完成结果
+#[derive(Debug, Clone)]
+pub struct ScanCompleteResult {
+    /// 找到的指针链数量
+    pub total_count: usize,
+    /// 输出文件路径
+    pub output_file: String,
+}
+
 /// Manages pointer scan operations.
 pub struct PointerScanManager {
-    /// Pointer library built in Phase 1
-    pointer_library: Option<MmapQueue<PointerData>>,
-    /// Pointer chain results from Phase 2
-    chain_results: Vec<PointerChain>,
     /// Current scan configuration
     config: PointerScanConfig,
     /// Shared buffer for progress communication
@@ -42,14 +47,14 @@ pub struct PointerScanManager {
     current_phase: ScanPhase,
     /// Last error code
     last_error: ScanErrorCode,
+    /// 扫描完成结果
+    scan_result: Option<ScanCompleteResult>,
 }
 
 impl PointerScanManager {
     /// Create a new manager instance.
     pub fn new() -> Self {
         Self {
-            pointer_library: None,
-            chain_results: Vec::new(),
             config: PointerScanConfig::default(),
             shared_buffer: PointerScanSharedBuffer::new(),
             cancel_token: None,
@@ -57,15 +62,20 @@ impl PointerScanManager {
             cache_dir: PathBuf::from("/data/data/moe.fuqiuluo.mamu/cache"),
             current_phase: ScanPhase::Idle,
             last_error: ScanErrorCode::None,
+            scan_result: None,
         }
     }
 
     /// Initialize the manager with a cache directory.
     pub fn init(&mut self, cache_dir: String) -> Result<()> {
-        self.cache_dir = PathBuf::from(cache_dir);
+        self.cache_dir = PathBuf::from(&cache_dir);
         if !self.cache_dir.exists() {
             std::fs::create_dir_all(&self.cache_dir)?;
         }
+
+        // 设置 MapQueue 的缓存目录（Android 兼容）
+        mapqueue_v2::set_cache_dir(&cache_dir)?;
+
         info!("PointerScanManager initialized with cache_dir: {:?}", self.cache_dir);
         Ok(())
     }
@@ -101,42 +111,17 @@ impl PointerScanManager {
         self.last_error
     }
 
-    /// Get the number of chain results.
-    pub fn get_chain_count(&self) -> usize {
-        if log_enabled!(Level::Debug) {
-            info!("PointerScanManager get_chain count: {}", self.chain_results.len());
-        }
-        self.chain_results.len()
-    }
-
-    /// Get a slice of chain results.
-    pub fn get_chain_results(&self, start: usize, count: usize) -> Vec<PointerChain> {
-        if log_enabled!(Level::Debug) {
-            info!("PointerScanManager get_chain results(start = {}, count = {})", start, count);
-        }
-
-        let end = std::cmp::min(start + count, self.chain_results.len());
-        if start >= self.chain_results.len() {
-            return Vec::new();
-        }
-        let rrt = self.chain_results[start..end].to_vec();
-
-        if log_enabled!(Level::Debug) {
-            for x in &rrt {
-                info!("---- {}", x.format());
-            }
-        }
-
-        rrt
+    /// Get scan result (total count and output file path)
+    pub fn get_scan_result(&self) -> Option<ScanCompleteResult> {
+        self.scan_result.clone()
     }
 
     /// Clear all results and reset state.
     pub fn clear(&mut self) {
-        self.pointer_library = None;
-        self.chain_results.clear();
         self.current_phase = ScanPhase::Idle;
         self.last_error = ScanErrorCode::None;
         self.shared_buffer.reset();
+        self.scan_result = None;
     }
 
     /// Start an async pointer scan.
@@ -150,7 +135,7 @@ impl PointerScanManager {
         align: u32,
         regions: Vec<ScanRegion>,
         static_modules: Vec<VmStaticData>,
-        is_layer_bfs: bool,
+        _is_layer_bfs: bool, // 不再使用，保留参数兼容性
     ) -> Result<()> {
         if self.is_scanning() {
             self.last_error = ScanErrorCode::AlreadyScanning;
@@ -168,7 +153,7 @@ impl PointerScanManager {
             max_depth,
             max_offset,
             align,
-            is_layer_bfs,
+            is_layer_bfs: true, // 始终使用 BFS V2
             data_start: true,
             bss_start: false,
         };
@@ -208,7 +193,7 @@ impl PointerScanManager {
     /// The async scan task that runs Phase 1 and Phase 2.
     async fn run_scan_task(
         config: PointerScanConfig,
-        regions: Vec<ScanRegion>, // 包含了static_modules
+        regions: Vec<ScanRegion>,
         static_modules: Vec<VmStaticData>,
         cache_dir: PathBuf,
         cancel_token: CancellationToken,
@@ -287,24 +272,66 @@ impl PointerScanManager {
             manager.shared_buffer.write_phase(ScanPhase::BuildingChains);
         }
 
-        // Phase 2: Build chains
+        // Phase 2: Build chains using BFS V2 and write to file
         if log_enabled!(Level::Debug) {
-            info!("Phase 2: Building pointer chains...");
+            info!("Phase 2: Building pointer chains (BFS V2)...");
         }
 
-        let chains_result = chain_builder::build_pointer_chains(
-            &pointer_lib,
-            &static_modules,
-            &config,
-            |depth, max_depth, chains_found| {
-                if let Ok(manager) = POINTER_SCAN_MANAGER.read() {
-                    manager
-                        .shared_buffer
-                        .update_building_progress(depth as i32, max_depth, chains_found);
+        let config_clone = config.clone();
+        let static_modules_clone = static_modules.clone();
+        let cancel_token_clone2 = cancel_token.clone();
+
+        // 生成输出文件路径
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let output_path = PathBuf::from(format!(
+            "/sdcard/pointer_scan_0x{:X}_{}.txt",
+            config.target_address,
+            timestamp
+        ));
+        let output_path_clone = output_path.clone();
+
+        let scan_result = tokio::task::spawn_blocking(move || {
+            // 将 MmapQueue 中的数据转换为 Vec<PointerData> 用于 BFS V2
+            // 注意：BFS V2 需要按 address 排序的指针数据
+            let mut global_pointers: Vec<PointerData> = Vec::with_capacity(pointer_lib.len());
+
+            for i in 0..pointer_lib.len() {
+                if let Some(archived) = pointer_lib.get(i) {
+                    global_pointers.push(PointerData::new(
+                        archived.address.to_native(),
+                        archived.value.to_native(),
+                    ));
                 }
-            },
-            || check_cancelled(),
-        );
+            }
+
+            // 按 address 排序（BFS V2 需要）
+            global_pointers.sort_unstable_by_key(|p| p.address);
+
+            // 创建 BFS V2 扫描器
+            let scanner = BfsV2Scanner::new(
+                &global_pointers,
+                &static_modules_clone,
+                &config_clone,
+            );
+
+            // 执行扫描，结果直接写入文件
+            scanner.scan_to_file(
+                output_path_clone,
+                100000, // 最大写入链数
+                |depth, max_depth, chains_found| {
+                    if let Ok(manager) = POINTER_SCAN_MANAGER.read() {
+                        manager
+                            .shared_buffer
+                            .update_building_progress(depth as i32, max_depth, chains_found);
+                    }
+                },
+                || cancel_token_clone2.is_cancelled(),
+            )
+        })
+        .await;
 
         // Check cancellation
         if check_cancelled() {
@@ -320,22 +347,35 @@ impl PointerScanManager {
         }
 
         // Store results
-        match chains_result {
-            Ok(chains) => {
-                if log_enabled!(Level::Debug) {
-                    info!("Phase 2 complete. Found {} chains", chains.len());
-                }
+        match scan_result {
+            Ok(Ok(result)) => {
+                info!(
+                    "Phase 2 complete. Found {} chains, written to {}",
+                    result.total_count,
+                    result.output_file.display()
+                );
                 if let Ok(mut manager) = POINTER_SCAN_MANAGER.write() {
-                    manager.pointer_library = Some(pointer_lib);
-                    manager.chain_results = chains;
+                    manager.scan_result = Some(ScanCompleteResult {
+                        total_count: result.total_count,
+                        output_file: result.output_file.to_string_lossy().to_string(),
+                    });
                     manager.current_phase = ScanPhase::Completed;
                     manager.shared_buffer.write_phase(ScanPhase::Completed);
                     manager.shared_buffer.write_progress(100);
-                    manager.shared_buffer.write_chains_found(manager.chain_results.len() as i64);
+                    manager.shared_buffer.write_chains_found(result.total_count as i64);
+                }
+            },
+            Ok(Err(e)) => {
+                error!("Phase 2 failed: {}", e);
+                if let Ok(mut manager) = POINTER_SCAN_MANAGER.write() {
+                    manager.current_phase = ScanPhase::Error;
+                    manager.last_error = ScanErrorCode::InternalError;
+                    manager.shared_buffer.write_phase(ScanPhase::Error);
+                    manager.shared_buffer.write_error_code(ScanErrorCode::InternalError);
                 }
             },
             Err(e) => {
-                error!("Phase 2 failed: {}", e);
+                error!("Phase 2 task panicked: {}", e);
                 if let Ok(mut manager) = POINTER_SCAN_MANAGER.write() {
                     manager.current_phase = ScanPhase::Error;
                     manager.last_error = ScanErrorCode::InternalError;
