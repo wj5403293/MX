@@ -484,8 +484,8 @@ class InfiniteMemoryAdapter(
                 val rowIndex = positionToRowIndex(position)
                 for (payload in payloads) {
                     when (payload) {
-                        PAYLOAD_SELECTION_CHANGED -> holder.updateSelection(rowIndex)
-                        PAYLOAD_DATA_UPDATED -> holder.bind(rowIndex)
+                        PAYLOAD_SELECTION_CHANGED -> holder.updateSelectionOnly(rowIndex)
+                        PAYLOAD_DATA_UPDATED -> holder.updateDataOnly(rowIndex)
                     }
                 }
             }
@@ -616,33 +616,150 @@ class InfiniteMemoryAdapter(
             }
         }
 
-        fun updateSelection(position: Int) {
-            currentAddress = rowToAddress(position)
-            updateSelectionAndHighlight(position)
-        }
-
-        private fun updateSelectionAndHighlight(position: Int) {
+        /**
+         * 只更新选中状态（用于 PAYLOAD_SELECTION_CHANGED）
+         * 不重新绑定数据，避免竞态条件
+         */
+        fun updateSelectionOnly(rowIndex: Int) {
+            currentAddress = rowToAddress(rowIndex)
             val isSelected = isAddressSelected(currentAddress)
             val isHighlighted = highlightAddress?.let {
                 it >= currentAddress && it < currentAddress + alignment
             } ?: false
 
-            binding.checkbox.apply {
-                setOnCheckedChangeListener(null)
-                isChecked = isSelected
-                setOnCheckedChangeListener { _, _ ->
-                    bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION }?.let {
-                        toggleSelection(rowToAddress(it))
-                        updateSelectionAndHighlight(it)
+            // 更新 checkbox 状态，但不触发监听器
+            binding.checkbox.setOnCheckedChangeListener(null)
+            binding.checkbox.isChecked = isSelected
+            setupCheckboxListener()
+
+            updateBackground(isSelected, isHighlighted)
+        }
+
+        /**
+         * 只更新数据显示（用于 PAYLOAD_DATA_UPDATED）
+         * 不触碰 checkbox，避免竞态条件
+         */
+        fun updateDataOnly(rowIndex: Int) {
+            currentAddress = rowToAddress(rowIndex)
+            val pageAddress = getPageAddress(currentAddress)
+            val pageData = getPageData(pageAddress)
+
+            spanBuilder.clear()
+            spanBuilder.clearSpans()
+
+            // 地址
+            val addressStart = 0
+            spanBuilder.append(currentAddress.toString(16).uppercase().padStart(8, '0'))
+            spanBuilder.setSpan(
+                ForegroundColorSpan(0xFF57D05B.toInt()),
+                addressStart, spanBuilder.length,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            spanBuilder.append("  ")
+
+            // 值
+            if (pageData != null) {
+                val offsetInPage = (currentAddress - pageAddress).toInt()
+                val requiredBytes = hexByteSize
+                val availableInCurrentPage = pageData.size - offsetInPage
+
+                val dataBuffer: ByteArray? = if (offsetInPage >= 0 && availableInCurrentPage >= requiredBytes) {
+                    pageData.copyOfRange(offsetInPage, offsetInPage + requiredBytes)
+                } else if (offsetInPage >= 0 && availableInCurrentPage > 0) {
+                    val nextPageAddress = pageAddress + PAGE_SIZE
+                    val nextPageData = getPageData(nextPageAddress)
+                    if (nextPageData != null) {
+                        val combined = ByteArray(requiredBytes)
+                        System.arraycopy(pageData, offsetInPage, combined, 0, availableInCurrentPage)
+                        val remainingBytes = requiredBytes - availableInCurrentPage
+                        if (remainingBytes <= nextPageData.size) {
+                            System.arraycopy(nextPageData, 0, combined, availableInCurrentPage, remainingBytes)
+                            combined
+                        } else null
+                    } else null
+                } else null
+
+                if (dataBuffer != null) {
+                    val buffer = ByteBuffer.wrap(dataBuffer).order(ByteOrder.LITTLE_ENDIAN)
+                    currentFormats.forEachIndexed { index, format ->
+                        if (index > 0) spanBuilder.append("; ")
+                        val start = spanBuilder.length
+                        val formattedValue = parseValue(buffer, format)
+                        spanBuilder.append(formattedValue.value)
+                        if (format.appendCode) spanBuilder.append(format.code)
+                        spanBuilder.setSpan(
+                            ForegroundColorSpan(formattedValue.color ?: format.textColor),
+                            start, spanBuilder.length,
+                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                        )
+                        buffer.position(0)
                     }
+                } else {
+                    appendPlaceholder()
                 }
+            } else {
+                appendPlaceholder()
             }
 
+            binding.contentText.text = spanBuilder
+
+            // 内存范围标识
+            val memoryRange = findMemoryRange(currentAddress)
+            if (memoryRange != null) {
+                binding.rangeText.text = memoryRange.code
+                binding.rangeText.setTextColor(memoryRange.color)
+            } else {
+                binding.rangeText.text = ""
+            }
+
+            // 只更新背景高亮状态，不触碰 checkbox
+            val isSelected = isAddressSelected(currentAddress)
+            val isHighlighted = highlightAddress?.let {
+                it >= currentAddress && it < currentAddress + alignment
+            } ?: false
+            updateBackground(isSelected, isHighlighted)
+        }
+
+        /**
+         * 设置 checkbox 监听器（使用正确的位置转换）
+         */
+        private fun setupCheckboxListener() {
+            binding.checkbox.setOnCheckedChangeListener { _, _ ->
+                bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION }?.let { pos ->
+                    val rowIndex = positionToRowIndex(pos)
+                    toggleSelection(rowToAddress(rowIndex))
+                    // 立即更新当前项的背景
+                    val isSelected = isAddressSelected(rowToAddress(rowIndex))
+                    val isHighlighted = highlightAddress?.let {
+                        it >= currentAddress && it < currentAddress + alignment
+                    } ?: false
+                    updateBackground(isSelected, isHighlighted)
+                }
+            }
+        }
+
+        /**
+         * 更新背景颜色
+         */
+        private fun updateBackground(isSelected: Boolean, isHighlighted: Boolean) {
             when {
                 isSelected -> binding.itemContainer.setBackgroundColor(0x33448AFF)
                 isHighlighted -> binding.itemContainer.setBackgroundColor(0x50b1d3b0)
                 else -> binding.itemContainer.background = null
             }
+        }
+
+        private fun updateSelectionAndHighlight(rowIndex: Int) {
+            val isSelected = isAddressSelected(currentAddress)
+            val isHighlighted = highlightAddress?.let {
+                it >= currentAddress && it < currentAddress + alignment
+            } ?: false
+
+            binding.checkbox.setOnCheckedChangeListener(null)
+            binding.checkbox.isChecked = isSelected
+            setupCheckboxListener()
+
+            updateBackground(isSelected, isHighlighted)
         }
 
         private fun createMemoryRow(position: Int): MemoryPreviewItem.MemoryRow {
