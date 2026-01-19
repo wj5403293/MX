@@ -221,7 +221,7 @@ Mamu uses a layered hybrid architecture combining Kotlin for UI/presentation and
 
 - [x] **Group Search**: Search for related values in memory
 - [x] **Offset Calculator**: Calculate offsets between related addresses
-- [ ] **Search History**: Save and replay previous search sessions
+- [x] **Search History**: Save and replay previous search sessions
 - [ ] **Base Conversion Tools**: Hex/Decimal/Binary/Octal converter
 - [ ] **Script Automation**: Lua scripting support for automated operations
 - [ ] **Multi-Architecture**: Support for arm, x86, x86_64 (beyond ARM64)
@@ -230,7 +230,7 @@ Mamu uses a layered hybrid architecture combining Kotlin for UI/presentation and
 - [ ] **Speed Hack**: Modify game speed (time manipulation)
 - [ ] **Breakpoint Debugging**: Debug processes with breakpoints
 - [ ] **Imgui**: Support rendering script interfaces using imgui
-- [ ] **Pointer Chain Scanning**
+- [x] **Pointer Chain Scanning**
 - [ ] **Plugin System for Extensions**
 
 ## Contributing
