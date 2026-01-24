@@ -367,6 +367,19 @@ class SearchController(
         }
     }
 
+    /**
+     * 静默刷新搜索结果列表的值
+     * 用于悬浮窗打开时自动刷新，不显示通知
+     */
+    fun refreshSilently() {
+        // 只有当有搜索结果时才刷新
+        if (searchResultAdapter.itemCount > 0) {
+            loadSearchResults(
+                limit = searchResultAdapter.itemCount
+            )
+        }
+    }
+
     @SuppressLint("SetTextI18n")
     fun updateSearchProcessDisplay(process: DisplayProcessInfo?) {
         process?.let {

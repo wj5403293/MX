@@ -82,8 +82,10 @@ app/src/main/rust/.cargo/config.toml
 # Auto-generated JNI libraries (will be built from Rust source)
 app/src/main/jniLibs/
 
-# Claude AI
+# Claude & OpenCode
 CLAUDE.md
+AGENT.md
+AGENTS.md
 .claude/
 REFINE_SEARCH_IMPLEMENTATION_PLAN.md
 /nul

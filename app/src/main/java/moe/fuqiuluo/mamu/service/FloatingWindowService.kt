@@ -1099,6 +1099,9 @@ class FloatingWindowService : Service(), ProcessDeathMonitor.Callback {
         // 刷新内存浏览界面
         memoryPreviewController.refreshSilently()
 
+        // 刷新搜索结果列表的值
+        searchController.refreshSilently()
+
         // 重新显示搜索进度对话框（如果正在搜索）
         searchController.showSearchProgressIfNeeded()
         // 重新显示模糊搜索对话框（如果搜索已完成且有结果）
