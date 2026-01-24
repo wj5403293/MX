@@ -133,6 +133,11 @@ class OffsetCalculatorDialog(
         // 监听输入变化，实时计算
         setupTextWatchers(binding)
 
+        // 触发初始计算（恢复历史输入后需要计算一次）
+        calculateJob = coroutineScope.launch(Dispatchers.Default) {
+            performCalculation(binding)
+        }
+
         // 复制按钮
         binding.btnCopy.setOnClickListener {
             copyResultToClipboard(binding)
