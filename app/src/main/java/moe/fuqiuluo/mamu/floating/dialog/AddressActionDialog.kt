@@ -202,7 +202,7 @@ class AddressActionDialog(
         for (format in formats) {
             when (format) {
                 MemoryDisplayFormat.BYTE -> {
-                    val byteVal = memoryBytes[0].toInt() and 0xFF
+                    val byteVal = memoryBytes[0] // 保持有符号，与内存预览显示一致
                     actions.add(ActionItem(
                         "复制 Byte: $byteVal",
                         R.drawable.content_copy_24px
@@ -211,7 +211,7 @@ class AddressActionDialog(
 
                 MemoryDisplayFormat.WORD -> {
                     buffer.position(0)
-                    val wordVal = buffer.short.toInt() and 0xFFFF
+                    val wordVal = buffer.short // 保持有符号，与内存预览显示一致
                     actions.add(ActionItem(
                         "复制 Word: $wordVal",
                         R.drawable.content_copy_24px
@@ -239,19 +239,21 @@ class AddressActionDialog(
                 MemoryDisplayFormat.FLOAT -> {
                     buffer.position(0)
                     val floatVal = buffer.float
+                    val floatStr = "%.6g".format(floatVal)
                     actions.add(ActionItem(
-                        "复制 Float: $floatVal",
+                        "复制 Float: $floatStr",
                         R.drawable.content_copy_24px
-                    ) { copyToClipboard("float", floatVal.toString(), "Float") })
+                    ) { copyToClipboard("float", floatStr, "Float") })
                 }
 
                 MemoryDisplayFormat.DOUBLE -> {
                     buffer.position(0)
                     val doubleVal = buffer.double
+                    val doubleStr = "%.10g".format(doubleVal)
                     actions.add(ActionItem(
-                        "复制 Double: $doubleVal",
+                        "复制 Double: $doubleStr",
                         R.drawable.content_copy_24px
-                    ) { copyToClipboard("double", doubleVal.toString(), "Double") })
+                    ) { copyToClipboard("double", doubleStr, "Double") })
                 }
 
                 MemoryDisplayFormat.HEX_BIG_ENDIAN -> {
