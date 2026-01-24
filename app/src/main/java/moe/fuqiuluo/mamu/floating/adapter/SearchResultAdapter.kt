@@ -394,6 +394,7 @@ class SearchResultAdapter(
                         // 当前值 - 根据数据类型格式化显示
                         val valueType = item.displayValueType ?: DisplayValueType.DWORD
                         valueText.text = formatValueByType(item.value, valueType)
+                        valueText.setTextColor(valueType.textColor)
 
                         // 备份值（旧值）
                         val backup = MemoryBackupManager.getBackup(item.address)
@@ -430,6 +431,7 @@ class SearchResultAdapter(
                         // 当前值 - 根据数据类型格式化显示
                         val valueType = item.displayValueType ?: DisplayValueType.DWORD
                         valueText.text = formatValueByType(item.value, valueType)
+                        valueText.setTextColor(valueType.textColor)
 
                         // 备份值（旧值）
                         val backup = MemoryBackupManager.getBackup(item.address)
@@ -464,7 +466,9 @@ class SearchResultAdapter(
                         addressText.text = item.address.toString(16).uppercase()
 
                         // 当前值（指针地址）
+                        val valueType = item.displayValueType
                         valueText.text = item.value
+                        valueText.setTextColor(valueType.textColor)
 
                         // 备份值不显示（指针扫描结果不需要备份）
                         backupValueText.visibility = View.GONE
@@ -474,7 +478,6 @@ class SearchResultAdapter(
                         pointerChainText.visibility = View.VISIBLE
 
                         // 类型（指针总是 QWORD）
-                        val valueType = item.displayValueType
                         typeText.apply {
                             text = valueType.code
                             setTextColor(valueType.textColor)
