@@ -124,11 +124,26 @@ class AddressActionDialog(
     }
 
     /**
+     * Convert value string to unsigned pointer address based on valueType.
+     * This prevents sign extension issues when converting smaller types (DWORD, WORD, BYTE) to Long.
+     */
+    private fun getPointerAddress(): Long? {
+        val rawValue = value.toLongOrNull() ?: return null
+        return when (valueType) {
+            DisplayValueType.BYTE -> rawValue and 0xFFL
+            DisplayValueType.WORD -> rawValue and 0xFFFFL
+            DisplayValueType.DWORD, DisplayValueType.XOR -> rawValue and 0xFFFFFFFFL
+            else -> rawValue
+        }
+    }
+
+    /**
      * 构建操作列表
      */
     private suspend fun buildActionList(): List<ActionItem> {
         val hexString = getHexString()
         val reverseHexString = getReverseHexString()
+        val pointerAddress = getPointerAddress()
 
         val actions = mutableListOf(
             ActionItem("偏移量计算器", R.drawable.calculate_24px) {
@@ -143,13 +158,13 @@ class AddressActionDialog(
                 callbacks.onJumpToAddress(address)
             },
             ActionItem(
-                "跳转到指针: ${"%X".format(value.toLongOrNull() ?: 0)}",
+                "跳转到指针: ${"%X".format(pointerAddress ?: 0)}",
                 R.drawable.icon_arrow_right_alt_24px
             ) {
                 dismiss()
-                val pointerAddress = value.toLongOrNull() ?: return@ActionItem
-                callbacks.onJumpToAddress(pointerAddress)
-                notification.showSuccess("跳转到指针: 0x${pointerAddress.toString(16).uppercase()}")
+                val addr = pointerAddress ?: return@ActionItem
+                callbacks.onJumpToAddress(addr)
+                notification.showSuccess("跳转到指针: 0x${addr.toString(16).uppercase()}")
             },
             ActionItem("复制此地址: ${"%X".format(address)}", R.drawable.content_copy_24px) {
                 copyToClipboard("address", address.toString(16).uppercase(), "地址")
