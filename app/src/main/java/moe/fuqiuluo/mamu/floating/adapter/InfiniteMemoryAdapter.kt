@@ -7,6 +7,8 @@ import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.graphics.toColor
+import androidx.core.graphics.toColorInt
 import androidx.recyclerview.widget.RecyclerView
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet
 import moe.fuqiuluo.mamu.databinding.ItemMemoryPreviewBinding
@@ -818,7 +820,8 @@ class InfiniteMemoryAdapter(
             try {
                 return when (format) {
                     MemoryDisplayFormat.HEX_LITTLE_ENDIAN, MemoryDisplayFormat.HEX_BIG_ENDIAN -> {
-                        if (buffer.remaining() < hexByteSize) return FormattedValue(format, "---", Color.WHITE)
+                        var color = Color.WHITE
+                        if (buffer.remaining() < hexByteSize) return FormattedValue(format, "---", color)
                         val bytes = ByteArray(hexByteSize)
                         buffer.get(bytes)
                         val hexBuilder = StringBuilder(hexByteSize * 2)
@@ -834,7 +837,29 @@ class InfiniteMemoryAdapter(
                                 hexBuilder.append(HEX_CHARS[b.toInt() and 0x0F])
                             }
                         }
-                        FormattedValue(format, hexBuilder.toString(), Color.WHITE)
+
+                        if (hexByteSize == 8) {
+                            fun byteArrayToLittleEndianLong(bytes: ByteArray): Long {
+                                require(bytes.size >= 8) { "ByteArray must contain at least 8 bytes" }
+
+                                var result: Long = 0
+                                for (i in 0..7) {
+                                    val byteVal = bytes[i].toLong() and 0xFF
+                                    result = result or (byteVal shl (i * 8))
+                                }
+                                return result
+                            }
+
+                            val value = byteArrayToLittleEndianLong(bytes)
+                            if (value > 0) {
+                                val range = findMemoryRange(value)
+                                if (range != null) {
+                                    color = 0xFFF82BF5.toInt()
+                                }
+                            }
+                        }
+
+                        FormattedValue(format, hexBuilder.toString(), color)
                     }
                     MemoryDisplayFormat.DWORD -> {
                         if (buffer.remaining() < 4) return FormattedValue(format, "---")

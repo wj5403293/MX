@@ -123,18 +123,19 @@ class AddressActionDialog(
         }
     }
 
-    /**
-     * Convert value string to unsigned pointer address based on valueType.
-     * This prevents sign extension issues when converting smaller types (DWORD, WORD, BYTE) to Long.
-     */
-    private fun getPointerAddress(): Long? {
-        val rawValue = value.toLongOrNull() ?: return null
-        return when (valueType) {
-            DisplayValueType.BYTE -> rawValue and 0xFFL
-            DisplayValueType.WORD -> rawValue and 0xFFFFL
-            DisplayValueType.DWORD, DisplayValueType.XOR -> rawValue and 0xFFFFFFFFL
-            else -> rawValue
-        }
+    private suspend fun getPointerAddress(): Long? {
+        val maxSize = 8
+        val memoryBytes = withContext(Dispatchers.IO) {
+            try {
+                WuwaDriver.readMemory(address, maxSize)
+            } catch (e: Exception) {
+                null
+            }
+        } ?: return null
+
+        val buffer = ByteBuffer.wrap(memoryBytes).order(ByteOrder.LITTLE_ENDIAN)
+        buffer.position(0)
+        return buffer.long
     }
 
     /**
@@ -158,11 +159,14 @@ class AddressActionDialog(
                 callbacks.onJumpToAddress(address)
             },
             ActionItem(
-                "跳转到指针: ${"%X".format(pointerAddress ?: 0)}",
+                "跳转到指针: ${(pointerAddress ?: 0).toString(16).uppercase()}",
                 R.drawable.icon_arrow_right_alt_24px
             ) {
                 dismiss()
-                val addr = pointerAddress ?: return@ActionItem
+                val addr = pointerAddress ?: run {
+                    notification.showError("指针异常无法跳转")
+                    return@ActionItem
+                }
                 callbacks.onJumpToAddress(addr)
                 notification.showSuccess("跳转到指针: 0x${addr.toString(16).uppercase()}")
             },
