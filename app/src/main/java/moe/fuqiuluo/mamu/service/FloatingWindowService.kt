@@ -769,6 +769,11 @@ class FloatingWindowService : Service(), ProcessDeathMonitor.Callback {
             hideFullscreen()
         }
 
+        // 横屏模式右上角关闭按钮
+        fullscreenBinding.btnCloseLandscape.setOnClickListener {
+            hideFullscreen()
+        }
+
         // 设置 TabLayout（顶部工具栏）
         fullscreenBinding.tabLayout.apply {
             removeAllTabs()
@@ -1130,6 +1135,9 @@ class FloatingWindowService : Service(), ProcessDeathMonitor.Callback {
         // 切换顶部工具栏和侧边栏的可见性
         fullscreenBinding.toolbarContainer.visibility = if (isLandscape) View.GONE else View.VISIBLE
         fullscreenBinding.sidebarContainer.visibility = if (isLandscape) View.VISIBLE else View.GONE
+        // 横屏模式显示右上角关闭按钮，隐藏侧边栏底部的关闭按钮
+        fullscreenBinding.btnCloseLandscape.visibility = if (isLandscape) View.VISIBLE else View.GONE
+        fullscreenBinding.sidebarBtnClose.visibility = if (isLandscape) View.GONE else View.VISIBLE
 
         // 更新内容区域的约束
         val contentContainer = fullscreenBinding.contentContainer

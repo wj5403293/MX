@@ -197,4 +197,17 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+    <!-- 横屏模式右上角关闭按钮 (放在最后确保在最上层) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_close_landscape"
+        style="@style/FloatingButton.MaterialIcon.Close"
+        android:layout_marginTop="@dimen/floating_spacing_sm"
+        android:layout_marginEnd="@dimen/floating_spacing_sm"
+        android:contentDescription="@string/content_desc_close"
+        android:visibility="gone"
+        app:icon="@drawable/icon_close_24px"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:visibility="visible" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>
