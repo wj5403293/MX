@@ -498,12 +498,12 @@ class OffsetCalculatorDialog(
 
                 MemoryDisplayFormat.FLOAT -> {
                     if (buffer.remaining() < 4) return FormattedValue(format, "---")
-                    FormattedValue(format, "%.6f".format(buffer.float))
+                    FormattedValue(format, formatFloatingPoint(buffer.float.toDouble(), 6))
                 }
 
                 MemoryDisplayFormat.DOUBLE -> {
                     if (buffer.remaining() < 8) return FormattedValue(format, "---")
-                    FormattedValue(format, "%.10f".format(buffer.double))
+                    FormattedValue(format, formatFloatingPoint(buffer.double, 10))
                 }
 
                 MemoryDisplayFormat.UTF16_LE -> {
@@ -661,6 +661,28 @@ class OffsetCalculatorDialog(
         append(text)
         setSpan(ForegroundColorSpan(color), start, length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
         return this
+    }
+
+    /**
+     * 格式化浮点数，对于极大/极小值使用科学计数法
+     */
+    private fun formatFloatingPoint(value: Double, maxPrecision: Int): String {
+        // 处理特殊值
+        if (value.isNaN()) return "NaN"
+        if (value.isInfinite()) return if (value > 0) "Inf" else "-Inf"
+        if (value == 0.0) return "0.0"
+
+        val absValue = kotlin.math.abs(value)
+
+        // 极大或极小值使用科学计数法
+        return if (absValue >= 1e7 || (absValue < 1e-4 && absValue > 0)) {
+            "%.${maxPrecision}g".format(value)
+        } else {
+            // 普通范围使用定点格式，去除尾部多余的0
+            "%.${maxPrecision}f".format(value).trimEnd('0').let {
+                if (it.endsWith('.')) it + "0" else it
+            }
+        }
     }
 
     /**
