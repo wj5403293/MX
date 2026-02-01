@@ -85,15 +85,7 @@ object PtrPathTokenizer {
                 continue
             }
 
-            // 数字
-            if (ch.isDigit() || (hexMode && ch in 'a'..'f') || (hexMode && ch in 'A'..'F')) {
-                val (token, newPos) = scanNumber(input, pos, hexMode)
-                tokens.add(token)
-                pos = newPos
-                continue
-            }
-
-            // 十六进制数字（0x前缀）
+            // 十六进制数字（0x前缀）- 必须在普通数字之前检查
             if (ch == '0' && pos + 1 < input.length && input[pos + 1] in "xX") {
                 val (token, newPos) = scanHexNumber(input, pos)
                 tokens.add(token)
@@ -101,8 +93,17 @@ object PtrPathTokenizer {
                 continue
             }
 
-            // 标识符或关键字
+            // 数字（hexMode下也包括a-f）
+            if (ch.isDigit() || (hexMode && ch in 'a'..'f') || (hexMode && ch in 'A'..'F')) {
+                val (token, newPos) = scanNumber(input, pos, hexMode)
+                tokens.add(token)
+                pos = newPos
+                continue
+            }
+
+            // 标识符或关键字（非hexMode下，或hexMode下非a-f开头的标识符）
             if (ch.isLetter() || ch == '_') {
+                // 在hexMode下，a-f会被上面的数字分支处理，这里只处理g-z和_开头的标识符
                 val (token, newPos) = scanIdentifier(input, pos)
                 tokens.add(token)
                 pos = newPos
@@ -198,7 +199,10 @@ object PtrPathTokenizer {
             }
         }
 
-        return Token(TokenType.NUMBER, sb.toString(), start) to pos
+        // 在hexMode下，给纯数字加上0x前缀，确保parser按十六进制解析
+        val tokenValue = if (hexMode) "0x${sb}" else sb.toString()
+
+        return Token(TokenType.NUMBER, tokenValue, start) to pos
     }
 
     /**

@@ -133,6 +133,14 @@ class OffsetCalculatorDialog(
         // 监听输入变化，实时计算
         setupTextWatchers(binding)
 
+        // 监听十六进制模式切换，触发重新计算
+        binding.cbHexMode.setOnCheckedChangeListener { _, _ ->
+            calculateJob?.cancel()
+            calculateJob = coroutineScope.launch(Dispatchers.Default) {
+                performCalculation(binding)
+            }
+        }
+
         // 触发初始计算（恢复历史输入后需要计算一次）
         calculateJob = coroutineScope.launch(Dispatchers.Default) {
             performCalculation(binding)
@@ -635,8 +643,15 @@ class OffsetCalculatorDialog(
     private fun copyResultToClipboard(binding: DialogOffsetCalculatorBinding) {
         val result = executionResult ?: return
 
+        val baseAddressStr = binding.inputBaseAddress.text.toString().trim()
+        val baseAddress = try {
+            baseAddressStr.toLong(16)
+        } catch (e: Exception) {
+            0L
+        }
+
         val text = buildString {
-            append("基址: 0x%X\n".format(result.finalAddress))
+            append("基址: 0x%X\n".format(baseAddress))
             append("表达式: ${binding.inputExpression.text}\n")
             append("最终地址: 0x%X\n".format(result.finalAddress))
 
