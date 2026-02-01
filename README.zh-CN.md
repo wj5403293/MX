@@ -5,6 +5,7 @@
 [![许可证](https://img.shields.io/badge/license-GPLv3-green.svg)](https://github.com/Shirasuki/MX/blob/master/LICENSE)
 [![平台](https://img.shields.io/badge/platform-Android%207.0%2B-orange.svg)](https://developer.android.com)
 [![语言](https://img.shields.io/badge/language-Kotlin%20%2B%20Rust-purple.svg)](https://kotlinlang.org)
+[![Telegram](https://img.shields.io/badge/Telegram-群组-blue.svg?logo=telegram)](https://t.me/shamrockrck)
 
 **中文** | [English](./README.md)
 
