@@ -59,4 +59,7 @@ sealed class UIActionEvent {
 
     /** 更新保存地址Tab的Badge数量 */
     data class UpdateSavedAddressBadge(val count: Int) : UIActionEvent()
+
+    /** 更新底部栏选中地址数量 */
+    data class UpdateSelectedCount(val count: Int) : UIActionEvent()
 }

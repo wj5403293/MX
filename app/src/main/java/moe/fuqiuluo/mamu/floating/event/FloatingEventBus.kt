@@ -87,11 +87,25 @@ object FloatingEventBus {
     }
 
     /**
+     * 发送地址值变更事件（单个）- 非挂起版本
+     */
+    fun tryEmitAddressValueChanged(event: AddressValueChangedEvent): Boolean {
+        return _addressValueChangedEvents.tryEmit(event)
+    }
+
+    /**
      * 发送地址值变更事件（批量）
      * 用于批量修改操作，避免发送大量单个事件造成性能问题
      */
     suspend fun emitBatchAddressValueChanged(event: BatchAddressValueChangedEvent) {
         _batchAddressValueChangedEvents.emit(event)
+    }
+
+    /**
+     * 发送地址值变更事件（批量）- 非挂起版本
+     */
+    fun tryEmitBatchAddressValueChanged(event: BatchAddressValueChangedEvent): Boolean {
+        return _batchAddressValueChangedEvents.tryEmit(event)
     }
 
     /**
@@ -102,10 +116,24 @@ object FloatingEventBus {
     }
 
     /**
+     * 发送进程状态变更事件 - 非挂起版本
+     */
+    fun tryEmitProcessState(event: ProcessStateEvent): Boolean {
+        return _processStateEvents.tryEmit(event)
+    }
+
+    /**
      * 发送 UI 操作请求事件
      */
     suspend fun emitUIAction(event: UIActionEvent) {
         _uiActionEvents.emit(event)
+    }
+
+    /**
+     * 发送 UI 操作请求事件 - 非挂起版本
+     */
+    fun tryEmitUIAction(event: UIActionEvent): Boolean {
+        return _uiActionEvents.tryEmit(event)
     }
 
     /**
@@ -116,10 +144,24 @@ object FloatingEventBus {
     }
 
     /**
+     * 发送内存范围配置变更事件 - 非挂起版本
+     */
+    fun tryEmitMemoryRangeChanged(): Boolean {
+        return _memoryRangeChangedEvents.tryEmit(MemoryRangeChangedEvent)
+    }
+
+    /**
      * 发送保存搜索结果事件
      */
     suspend fun emitSaveSearchResults(event: SaveSearchResultsEvent) {
         _saveSearchResultsEvents.emit(event)
+    }
+
+    /**
+     * 发送保存搜索结果事件 - 非挂起版本
+     */
+    fun tryEmitSaveSearchResults(event: SaveSearchResultsEvent): Boolean {
+        return _saveSearchResultsEvents.tryEmit(event)
     }
 
     /**
@@ -130,10 +172,24 @@ object FloatingEventBus {
     }
 
     /**
+     * 发送搜索结果更新事件 - 非挂起版本
+     */
+    fun tryEmitSearchResultsUpdated(event: SearchResultsUpdatedEvent): Boolean {
+        return _searchResultsUpdatedEvents.tryEmit(event)
+    }
+
+    /**
      * 发送导航到内存地址事件
      */
     suspend fun emitNavigateToMemoryAddress(event: NavigateToMemoryAddressEvent) {
         _navigateToMemoryAddressEvents.emit(event)
+    }
+
+    /**
+     * 发送导航到内存地址事件 - 非挂起版本
+     */
+    fun tryEmitNavigateToMemoryAddress(event: NavigateToMemoryAddressEvent): Boolean {
+        return _navigateToMemoryAddressEvents.tryEmit(event)
     }
 
     /**
@@ -144,9 +200,23 @@ object FloatingEventBus {
     }
 
     /**
+     * 发送保存内存预览事件 - 非挂起版本
+     */
+    fun tryEmitSaveMemoryPreview(event: SaveMemoryPreviewEvent): Boolean {
+        return _saveMemoryPreviewEvents.tryEmit(event)
+    }
+
+    /**
      * 发送保存并冻结地址事件
      */
     suspend fun emitSaveAndFreeze(event: SaveAndFreezeEvent) {
         _saveAndFreezeEvents.emit(event)
+    }
+
+    /**
+     * 发送保存并冻结地址事件 - 非挂起版本
+     */
+    fun tryEmitSaveAndFreeze(event: SaveAndFreezeEvent): Boolean {
+        return _saveAndFreezeEvents.tryEmit(event)
     }
 }

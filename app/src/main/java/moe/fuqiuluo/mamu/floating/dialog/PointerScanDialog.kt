@@ -213,9 +213,7 @@ class PointerScanDialog(
         progressDialog = PointerScanProgressDialog(context = context, onCancelClick = {
             cancelScan()
         }, onHideClick = {
-            scanScope.launch {
-                FloatingEventBus.emitUIAction(UIActionEvent.HideFloatingWindow)
-            }
+            FloatingEventBus.tryEmitUIAction(UIActionEvent.HideFloatingWindow)
         }).apply {
             show()
         }
@@ -312,9 +310,7 @@ class PointerScanDialog(
                 context = context,
                 onCancelClick = { cancelScan() },
                 onHideClick = {
-                    scanScope.launch {
-                        FloatingEventBus.emitUIAction(UIActionEvent.HideFloatingWindow)
-                    }
+                    FloatingEventBus.tryEmitUIAction(UIActionEvent.HideFloatingWindow)
                 }).apply {
                 show()
                 updateProgress(

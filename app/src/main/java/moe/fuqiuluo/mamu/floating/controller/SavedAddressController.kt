@@ -81,6 +81,10 @@ class SavedAddressController(
         },
         onItemDelete = { address ->
             deleteAddress(address.address)
+        },
+        onSelectionChanged = { selectedCount ->
+            // 更新底部栏选中数量
+            FloatingEventBus.tryEmitUIAction(UIActionEvent.UpdateSelectedCount(selectedCount))
         }
     )
 
@@ -337,11 +341,9 @@ class SavedAddressController(
         binding.savedCountText.text = "($count)"
 
         // 更新顶部Tab Badge
-        coroutineScope.launch {
-            FloatingEventBus.emitUIAction(
-                UIActionEvent.UpdateSavedAddressBadge(count)
-            )
-        }
+        FloatingEventBus.tryEmitUIAction(
+            UIActionEvent.UpdateSavedAddressBadge(count)
+        )
     }
 
     private fun setupToolbar() {
@@ -655,22 +657,18 @@ class SavedAddressController(
             callbacks = object : AddressActionDialog.Callbacks {
                 override fun onShowOffsetCalculator(address: Long) {
                     // 调用偏移量计算器，传入当前地址作为初始基址
-                    coroutineScope.launch {
-                        FloatingEventBus.emitUIAction(
-                            UIActionEvent.ShowOffsetCalculatorDialog(
-                                initialBaseAddress = address
-                            )
+                    FloatingEventBus.tryEmitUIAction(
+                        UIActionEvent.ShowOffsetCalculatorDialog(
+                            initialBaseAddress = address
                         )
-                    }
+                    )
                 }
 
                 override fun onJumpToAddress(address: Long) {
                     // 发送跳转到内存预览的事件
-                    coroutineScope.launch {
-                        FloatingEventBus.emitUIAction(
-                            UIActionEvent.JumpToMemoryPreview(address)
-                        )
-                    }
+                    FloatingEventBus.tryEmitUIAction(
+                        UIActionEvent.JumpToMemoryPreview(address)
+                    )
                 }
             },
             source = AddressActionSource.SAVED_ADDRESS,
@@ -1286,11 +1284,9 @@ class SavedAddressController(
             return
         }
 
-        coroutineScope.launch {
-            FloatingEventBus.emitUIAction(
-                UIActionEvent.ShowOffsetXorDialog(selectedItems)
-            )
-        }
+        FloatingEventBus.tryEmitUIAction(
+            UIActionEvent.ShowOffsetXorDialog(selectedItems)
+        )
     }
 
     /**
@@ -1397,13 +1393,11 @@ class SavedAddressController(
             initialBaseAddress = selectedItems.firstOrNull()?.address
         }
 
-        coroutineScope.launch {
-            FloatingEventBus.emitUIAction(
-                UIActionEvent.ShowOffsetCalculatorDialog(
-                    initialBaseAddress = initialBaseAddress
-                )
+        FloatingEventBus.tryEmitUIAction(
+            UIActionEvent.ShowOffsetCalculatorDialog(
+                initialBaseAddress = initialBaseAddress
             )
-        }
+        )
     }
 
     /**

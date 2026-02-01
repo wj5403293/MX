@@ -715,12 +715,10 @@ class OffsetCalculatorDialog(
         InputHistoryManager.saveFromEditText(binding.inputBaseAddress, InputHistoryManager.Keys.OFFSET_CALCULATOR_BASE)
         InputHistoryManager.saveFromEditText(binding.inputExpression, InputHistoryManager.Keys.OFFSET_CALCULATOR_OFFSET)
 
-        coroutineScope.launch {
-            // 使用 JumpToMemoryPreview 事件，会先切换到内存预览 Tab 再跳转
-            FloatingEventBus.emitUIAction(
-                UIActionEvent.JumpToMemoryPreview(address = result.finalAddress)
-            )
-        }
+        // 使用 JumpToMemoryPreview 事件，会先切换到内存预览 Tab 再跳转
+        FloatingEventBus.tryEmitUIAction(
+            UIActionEvent.JumpToMemoryPreview(address = result.finalAddress)
+        )
 
         dialog.dismiss()
     }

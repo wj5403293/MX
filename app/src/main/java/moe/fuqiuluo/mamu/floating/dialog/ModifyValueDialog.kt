@@ -267,18 +267,16 @@ class ModifyValueDialog : BaseDialog {
 
         binding.btnGoto.setOnClickListener {
             // 发送导航事件到内存预览界面，并切换tab
-            coroutineScope.launch {
-                // 发送导航事件
-                FloatingEventBus.emitNavigateToMemoryAddress(
-                    NavigateToMemoryAddressEvent(address = address)
-                )
-                // 切换到内存预览tab
-                FloatingEventBus.emitUIAction(
-                    UIActionEvent.SwitchToMemoryPreviewTab
-                )
-                notification.showSuccess("已转到地址: ${String.format("%X", address)}")
-                dialog.dismiss()
-            }
+            // 发送导航事件
+            FloatingEventBus.tryEmitNavigateToMemoryAddress(
+                NavigateToMemoryAddressEvent(address = address)
+            )
+            // 切换到内存预览tab
+            FloatingEventBus.tryEmitUIAction(
+                UIActionEvent.SwitchToMemoryPreviewTab
+            )
+            notification.showSuccess("已转到地址: ${String.format("%X", address)}")
+            dialog.dismiss()
         }
 
         binding.btnCancel.setOnClickListener {

@@ -111,7 +111,10 @@ class MemoryPreviewController(
                 showAddressActionDialog(memoryRow)
                 true
             },
-            onSelectionChanged = { _ -> },
+            onSelectionChanged = { selectedCount ->
+                // 更新底部栏选中数量
+                FloatingEventBus.tryEmitUIAction(UIActionEvent.UpdateSelectedCount(selectedCount))
+            },
             onDataRequest = { pageAlignedAddress, callback ->
                 requestPageData(pageAlignedAddress, callback)
             },
@@ -593,11 +596,9 @@ class MemoryPreviewController(
                 coroutineScope = coroutineScope,
                 callbacks = object : AddressActionDialog.Callbacks {
                     override fun onShowOffsetCalculator(address: Long) {
-                        coroutineScope.launch {
-                            FloatingEventBus.emitUIAction(
-                                UIActionEvent.ShowOffsetCalculatorDialog(initialBaseAddress = address)
-                            )
-                        }
+                        FloatingEventBus.tryEmitUIAction(
+                            UIActionEvent.ShowOffsetCalculatorDialog(initialBaseAddress = address)
+                        )
                     }
                     override fun onJumpToAddress(address: Long) { jumpToAddress(address) }
                 },
@@ -686,9 +687,7 @@ class MemoryPreviewController(
             adapter.getSelectedAddresses().first()
         } else currentStartAddress
 
-        coroutineScope.launch {
-            FloatingEventBus.emitUIAction(UIActionEvent.ShowOffsetCalculatorDialog(initialBaseAddress))
-        }
+        FloatingEventBus.tryEmitUIAction(UIActionEvent.ShowOffsetCalculatorDialog(initialBaseAddress))
     }
 
     private fun showModuleListDialog() {
@@ -924,9 +923,7 @@ class MemoryPreviewController(
             SavedAddress(row.address, "0x${row.address.toString(16).uppercase()}",
                 DisplayValueType.DWORD.nativeId, "", false, row.memoryRange ?: MemoryRange.O)
         }
-        coroutineScope.launch {
-            FloatingEventBus.emitUIAction(UIActionEvent.ShowOffsetXorDialog(tempAddresses))
-        }
+        FloatingEventBus.tryEmitUIAction(UIActionEvent.ShowOffsetXorDialog(tempAddresses))
     }
 
     private fun updateEmptyState() {

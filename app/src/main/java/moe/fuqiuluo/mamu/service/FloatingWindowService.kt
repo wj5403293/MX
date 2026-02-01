@@ -293,11 +293,9 @@ class FloatingWindowService : Service(), ProcessDeathMonitor.Callback {
                         isProgrammaticTabSwitch = false
                         switchToTab(TAB_MEMORY_PREVIEW)
 
-                        coroutineScope.launch {
-                            FloatingEventBus.emitNavigateToMemoryAddress(
-                                NavigateToMemoryAddressEvent(address = event.address)
-                            )
-                        }
+                        FloatingEventBus.tryEmitNavigateToMemoryAddress(
+                            NavigateToMemoryAddressEvent(address = event.address)
+                        )
                     }
 
                     is UIActionEvent.UpdateSearchBadge -> {
@@ -306,6 +304,10 @@ class FloatingWindowService : Service(), ProcessDeathMonitor.Callback {
 
                     is UIActionEvent.UpdateSavedAddressBadge -> {
                         updateTabBadge(TAB_SAVED_ADDRESSES, event.count, null)
+                    }
+
+                    is UIActionEvent.UpdateSelectedCount -> {
+                        updateSelectedCount(event.count)
                     }
                 }
             }
@@ -529,11 +531,9 @@ class FloatingWindowService : Service(), ProcessDeathMonitor.Callback {
                 ).apply {
                     onItemClick = { position ->
                         val selectedProcess = processList[position]
-                        coroutineScope.launch {
-                            FloatingEventBus.emitUIAction(
-                                UIActionEvent.BindProcessRequest(selectedProcess)
-                            )
-                        }
+                        FloatingEventBus.tryEmitUIAction(
+                            UIActionEvent.BindProcessRequest(selectedProcess)
+                        )
                     }
                     onCancel = { isProcessDialogShowing.set(false) }
                     onDismiss = { isProcessDialogShowing.set(false) }
@@ -964,6 +964,9 @@ class FloatingWindowService : Service(), ProcessDeathMonitor.Callback {
 
         // 显示选中的内容视图
         contentContainer.findViewById<View>(contentId)?.visibility = View.VISIBLE
+
+        // 切换 Tab 时清除选中数量显示
+        updateSelectedCount(0)
     }
 
     /**
@@ -1074,9 +1077,7 @@ class FloatingWindowService : Service(), ProcessDeathMonitor.Callback {
 
         fullscreenBinding.tvSelectedMemoryRanges.setOnClickListener {
             // 发送显示内存范围对话框事件
-            coroutineScope.launch {
-                FloatingEventBus.emitUIAction(UIActionEvent.ShowMemoryRangeDialog)
-            }
+            FloatingEventBus.tryEmitUIAction(UIActionEvent.ShowMemoryRangeDialog)
         }
     }
 
@@ -1293,6 +1294,20 @@ class FloatingWindowService : Service(), ProcessDeathMonitor.Callback {
         }
 
         tvSelectedMemoryRanges.text = spannable
+    }
+
+    /**
+     * 更新底部栏选中地址数量显示
+     */
+    @SuppressLint("SetTextI18n")
+    private fun updateSelectedCount(count: Int) {
+        val tvSelectedCount = fullscreenBinding.tvSelectedCount
+        if (count > 0) {
+            tvSelectedCount.text = "[$count]"
+            tvSelectedCount.visibility = View.VISIBLE
+        } else {
+            tvSelectedCount.visibility = View.GONE
+        }
     }
 
     override fun onProcessDied(pid: Int) {

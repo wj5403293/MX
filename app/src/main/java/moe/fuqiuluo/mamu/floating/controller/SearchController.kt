@@ -311,7 +311,8 @@ class SearchController(
                 true
             },
             onSelectionChanged = { selectedCount ->
-                // 不需要执行任何操作
+                // 更新底部栏选中数量
+                FloatingEventBus.tryEmitUIAction(UIActionEvent.UpdateSelectedCount(selectedCount))
             },
             onItemDelete = { item ->
                 // 异步调用 native 删除
@@ -405,11 +406,9 @@ class SearchController(
         }
 
         // 更新顶部Tab Badge - 显示总结果数量
-        coroutineScope.launch {
-            FloatingEventBus.emitUIAction(
-                UIActionEvent.UpdateSearchBadge(total ?: 0, null)
-            )
-        }
+        FloatingEventBus.tryEmitUIAction(
+            UIActionEvent.UpdateSearchBadge(total ?: 0, null)
+        )
 
         // 设置点击监听器，弹出过滤配置dialog
         binding.searchCountText.setOnClickListener {
@@ -1038,22 +1037,18 @@ class SearchController(
             callbacks = object : AddressActionDialog.Callbacks {
                 override fun onShowOffsetCalculator(address: Long) {
                     // 调用偏移量计算器，传入当前地址作为初始基址
-                    coroutineScope.launch {
-                        FloatingEventBus.emitUIAction(
-                            UIActionEvent.ShowOffsetCalculatorDialog(
-                                initialBaseAddress = address
-                            )
+                    FloatingEventBus.tryEmitUIAction(
+                        UIActionEvent.ShowOffsetCalculatorDialog(
+                            initialBaseAddress = address
                         )
-                    }
+                    )
                 }
 
                 override fun onJumpToAddress(address: Long) {
                     // 发送跳转到内存预览的事件
-                    coroutineScope.launch {
-                        FloatingEventBus.emitUIAction(
-                            UIActionEvent.JumpToMemoryPreview(address)
-                        )
-                    }
+                    FloatingEventBus.tryEmitUIAction(
+                        UIActionEvent.JumpToMemoryPreview(address)
+                    )
                 }
             }
         )
@@ -1316,13 +1311,11 @@ class SearchController(
             }
         }
 
-        coroutineScope.launch {
-            FloatingEventBus.emitUIAction(
-                UIActionEvent.ShowOffsetCalculatorDialog(
-                    initialBaseAddress = initialBaseAddress
-                )
+        FloatingEventBus.tryEmitUIAction(
+            UIActionEvent.ShowOffsetCalculatorDialog(
+                initialBaseAddress = initialBaseAddress
             )
-        }
+        )
     }
 
     /**
@@ -1368,9 +1361,7 @@ class SearchController(
             }
         }
 
-        coroutineScope.launch {
-            FloatingEventBus.emitUIAction(UIActionEvent.ShowOffsetXorDialog(tempAddresses))
-        }
+        FloatingEventBus.tryEmitUIAction(UIActionEvent.ShowOffsetXorDialog(tempAddresses))
     }
 
     fun adjustLayoutForOrientation(orientation: Int) {

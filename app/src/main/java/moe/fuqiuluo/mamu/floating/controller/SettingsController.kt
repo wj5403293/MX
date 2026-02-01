@@ -106,33 +106,25 @@ class SettingsController(
     private fun setupProcessSelection() {
         binding.settingSelectProcess.setOnClickListener {
             // 发送 UI 操作事件，由 Service 统一处理
-            coroutineScope.launch {
-                FloatingEventBus.emitUIAction(UIActionEvent.ShowProcessSelectionDialog)
-            }
+            FloatingEventBus.tryEmitUIAction(UIActionEvent.ShowProcessSelectionDialog)
         }
         updateCurrentProcessDisplay(null)
 
         binding.btnTerminateProc.setOnClickListener {
             // 发送解绑进程请求事件，由 Service 统一处理
-            coroutineScope.launch {
-                FloatingEventBus.emitUIAction(UIActionEvent.UnbindProcessRequest)
-            }
+            FloatingEventBus.tryEmitUIAction(UIActionEvent.UnbindProcessRequest)
         }
 
         binding.btnExitOverlay.setOnClickListener {
             // 发送退出悬浮窗请求事件，由 Service 统一处理
-            coroutineScope.launch {
-                FloatingEventBus.emitUIAction(UIActionEvent.ExitOverlayRequest)
-            }
+            FloatingEventBus.tryEmitUIAction(UIActionEvent.ExitOverlayRequest)
         }
     }
 
     private fun setupMemoryRange() {
         binding.settingMemoryRange.setOnClickListener {
             // 发送显示内存范围对话框事件，由 Service 统一处理
-            coroutineScope.launch {
-                FloatingEventBus.emitUIAction(UIActionEvent.ShowMemoryRangeDialog)
-            }
+            FloatingEventBus.tryEmitUIAction(UIActionEvent.ShowMemoryRangeDialog)
         }
         updateMemoryRangeSummary()
     }
@@ -256,9 +248,7 @@ class SettingsController(
                 val opacity = intValue / 100f
                 mmkv.floatingOpacity = opacity
                 // 发送应用透明度事件
-                coroutineScope.launch {
-                    FloatingEventBus.emitUIAction(UIActionEvent.ApplyOpacityRequest)
-                }
+                FloatingEventBus.tryEmitUIAction(UIActionEvent.ApplyOpacityRequest)
             }
         }
     }

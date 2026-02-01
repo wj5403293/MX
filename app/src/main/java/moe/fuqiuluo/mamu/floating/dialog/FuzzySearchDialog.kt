@@ -529,9 +529,7 @@ class FuzzySearchDialog(
             },
             onHideClick = {
                 // 发送隐藏悬浮窗事件
-                searchScope.launch {
-                    FloatingEventBus.emitUIAction(UIActionEvent.HideFloatingWindow)
-                }
+                FloatingEventBus.tryEmitUIAction(UIActionEvent.HideFloatingWindow)
             }
         ).apply {
             show()
