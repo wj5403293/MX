@@ -181,34 +181,35 @@
         app:layout_constraintStart_toStartOf="parent">
 
         <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/tv_selected_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingStart="@dimen/floating_spacing_md"
+            android:paddingBottom="@dimen/floating_spacing_xs"
+            android:text="[0]"
+            android:textColor="@color/floating_primary"
+            android:textSize="@dimen/floating_text_caption"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/tv_selected_memory_ranges"
+            app:layout_constraintHorizontal_chainStyle="packed" />
+
+        <com.google.android.material.textview.MaterialTextView
             android:id="@+id/tv_selected_memory_ranges"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:gravity="center"
             android:maxLines="1"
+            android:paddingStart="@dimen/floating_spacing_sm"
+            android:paddingEnd="@dimen/floating_spacing_md"
             android:paddingBottom="@dimen/floating_spacing_xs"
             android:text="Jh,Ch,Ca,Cb,Cd,Ps,A,Xs"
             android:textColor="@color/floating_text_primary"
             android:textSize="@dimen/floating_text_caption"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/tv_selected_count"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintHorizontal_chainStyle="packed" />
-
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/tv_selected_count"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:paddingStart="@dimen/floating_spacing_sm"
-            android:paddingBottom="@dimen/floating_spacing_xs"
-            android:text=""
-            android:textColor="@color/floating_primary"
-            android:textSize="@dimen/floating_text_caption"
-            android:visibility="gone"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toEndOf="@id/tv_selected_memory_ranges" />
+            app:layout_constraintStart_toEndOf="@id/tv_selected_count"
+            app:layout_constraintEnd_toEndOf="parent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

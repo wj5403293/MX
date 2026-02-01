@@ -1301,13 +1301,7 @@ class FloatingWindowService : Service(), ProcessDeathMonitor.Callback {
      */
     @SuppressLint("SetTextI18n")
     private fun updateSelectedCount(count: Int) {
-        val tvSelectedCount = fullscreenBinding.tvSelectedCount
-        if (count > 0) {
-            tvSelectedCount.text = "[$count]"
-            tvSelectedCount.visibility = View.VISIBLE
-        } else {
-            tvSelectedCount.visibility = View.GONE
-        }
+        fullscreenBinding.tvSelectedCount.text = "[$count]"
     }
 
     override fun onProcessDied(pid: Int) {
