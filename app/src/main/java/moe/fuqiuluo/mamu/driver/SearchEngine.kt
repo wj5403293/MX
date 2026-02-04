@@ -452,6 +452,57 @@ object SearchEngine {
     }
 
     /**
+     * Starts an async pattern/signature search.
+     * @param pattern Pattern string like "1A 2B ?C D? ?? FF"
+     * @param ranges Memory range set.
+     * @return Whether the search started successfully.
+     */
+    fun startPatternSearchAsync(
+        pattern: String,
+        ranges: Set<MemoryRange>,
+    ): Boolean {
+        val nativeRegions = mutableListOf<Long>()
+
+        WuwaDriver.queryMemRegionsWithRetry()
+            .divideToSimpleMemoryRange()
+            .filter { ranges.contains(it.range) }
+            .forEach {
+                nativeRegions.add(it.start)
+                nativeRegions.add(it.end)
+            }
+
+        clearSharedBuffer()
+        newSharedBuffer()
+
+        return nativeStartPatternSearchAsync(pattern, nativeRegions.toLongArray())
+    }
+
+    /**
+     * Starts an async pattern/signature search with custom memory regions.
+     * @param pattern Pattern string like "1A 2B ?C D? ?? FF"
+     * @param regions Memory region array, format [start1, end1, start2, end2, ...].
+     * @return Whether the search started successfully.
+     */
+    fun startPatternSearchAsyncWithCustomRange(
+        pattern: String,
+        regions: LongArray,
+    ): Boolean {
+        clearSharedBuffer()
+        if (!newSharedBuffer()) {
+            throw RuntimeException("failed to init SharedBuffer")
+        }
+        return nativeStartPatternSearchAsync(pattern, regions)
+    }
+
+    /**
+     * Gets the current pattern length (for UI display).
+     * @return Pattern length in bytes, or -1 if no pattern search has been performed.
+     */
+    fun getCurrentPatternLen(): Int {
+        return nativeGetCurrentPatternLen()
+    }
+
+    /**
      * Executes refine search synchronously (legacy).
      */
     @Deprecated("Low performance")
@@ -579,6 +630,13 @@ object SearchEngine {
         param1: Long,
         param2: Long
     ): Boolean
+
+    private external fun nativeStartPatternSearchAsync(
+        pattern: String,
+        regions: LongArray
+    ): Boolean
+
+    private external fun nativeGetCurrentPatternLen(): Int
 
     // Legacy native methods kept for backward compatibility.
     @Deprecated("Low performance")

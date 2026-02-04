@@ -449,12 +449,20 @@ class SearchDialog(
                     // 使用异步 API 启动搜索
                     // IMPORTANT: Start search FIRST, then start monitoring
                     // This ensures the monitoring coroutine sees SEARCHING status, not old COMPLETED
-                    val started = SearchEngine.startSearchAsyncWithCustomRange(
-                        expression,
-                        valueType,
-                        nativeRegions.toLongArray(),
-                        useDeepSearch = binding.cbIsDeeplySearch.isChecked
-                    )
+                    val started = if (valueType == DisplayValueType.PATTERN) {
+                        // Pattern/特征码搜索使用专用 API
+                        SearchEngine.startPatternSearchAsyncWithCustomRange(
+                            expression,
+                            nativeRegions.toLongArray()
+                        )
+                    } else {
+                        SearchEngine.startSearchAsyncWithCustomRange(
+                            expression,
+                            valueType,
+                            nativeRegions.toLongArray(),
+                            useDeepSearch = binding.cbIsDeeplySearch.isChecked
+                        )
+                    }
                     if (started) {
                         // Start monitoring AFTER search has started (status is now SEARCHING)
                         withContext(Dispatchers.Main) {
@@ -479,6 +487,12 @@ class SearchDialog(
         val refineSearch: () -> Unit = refineSearch@{
             val expression = binding.inputValue.text.toString().trim()
             val valueType = currentValueType
+
+            // Pattern 类型不支持改善搜索
+            if (valueType == DisplayValueType.PATTERN) {
+                notification.showError("特征码搜索不支持改善搜索，请使用新搜索")
+                return@refineSearch
+            }
 
             if (!preCheck(expression, valueType)) {
                 return@refineSearch

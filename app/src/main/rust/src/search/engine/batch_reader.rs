@@ -84,6 +84,7 @@ impl ReadResultItem {
                 f32::from_le_bytes([self.old_value[0], self.old_value[1], self.old_value[2], self.old_value[3]]) as i64
             },
             ValueType::Double => f64::from_le_bytes(self.old_value) as i64,
+            ValueType::Pattern => 0, // Pattern 类型不支持模糊搜索
         }
     }
     
@@ -100,6 +101,7 @@ impl ReadResultItem {
                 f32::from_le_bytes([self.current_value[0], self.current_value[1], self.current_value[2], self.current_value[3]]) as i64
             },
             ValueType::Double => f64::from_le_bytes(self.current_value) as i64,
+            ValueType::Pattern => 0, // Pattern 类型不支持模糊搜索
         }
     }
     
@@ -116,6 +118,7 @@ impl ReadResultItem {
                 f32::from_le_bytes([self.old_value[0], self.old_value[1], self.old_value[2], self.old_value[3]]) as f64
             },
             ValueType::Double => f64::from_le_bytes(self.old_value),
+            ValueType::Pattern => 0.0, // Pattern 类型不支持模糊搜索
         }
     }
     
@@ -132,6 +135,7 @@ impl ReadResultItem {
                 f32::from_le_bytes([self.current_value[0], self.current_value[1], self.current_value[2], self.current_value[3]]) as f64
             },
             ValueType::Double => f64::from_le_bytes(self.current_value),
+            ValueType::Pattern => 0.0, // Pattern 类型不支持模糊搜索
         }
     }
     

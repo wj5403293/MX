@@ -81,6 +81,7 @@ impl FuzzySearchResultItem {
             ValueType::Qword => i64::from_le_bytes(self.value),
             ValueType::Float => f32::from_le_bytes(self.value[..4].try_into().unwrap()) as i64,
             ValueType::Double => f64::from_le_bytes(self.value) as i64,
+            ValueType::Pattern => 0, // Pattern 类型不支持模糊搜索
         }
     }
 
@@ -95,6 +96,7 @@ impl FuzzySearchResultItem {
             ValueType::Qword => i64::from_le_bytes(self.value) as f64,
             ValueType::Float => f32::from_le_bytes(self.value[..4].try_into().unwrap()) as f64,
             ValueType::Double => f64::from_le_bytes(self.value),
+            ValueType::Pattern => 0.0, // Pattern 类型不支持模糊搜索
         }
     }
 

@@ -12,6 +12,8 @@ pub enum ValueType {
     Double = 5,
     Auto = 6,
     Xor = 7,
+    /// 特征码搜索类型
+    Pattern = 8,
 }
 
 impl ValueType {
@@ -26,6 +28,7 @@ impl ValueType {
             5 => Some(Self::Double),
             6 => Some(Self::Auto),
             7 => Some(Self::Xor),
+            8 => Some(Self::Pattern),
             _ => None,
         }
     }
@@ -46,6 +49,7 @@ impl ValueType {
             'E' => Some(ValueType::Double),
             'A' => Some(ValueType::Auto),
             'X' => Some(ValueType::Xor),
+            'P' => Some(ValueType::Pattern),
             _ => None,
         }
     }
@@ -61,6 +65,7 @@ impl ValueType {
             ValueType::Double => 8,
             ValueType::Auto => 4,
             ValueType::Xor => 4,
+            ValueType::Pattern => 0, // 可变长度，由 pattern 决定
         }
     }
 
@@ -81,6 +86,7 @@ impl fmt::Display for ValueType {
             ValueType::Double => write!(f, "Double"),
             ValueType::Auto => write!(f, "Auto"),
             ValueType::Xor => write!(f, "Xor"),
+            ValueType::Pattern => write!(f, "Pattern"),
         }
     }
 }
@@ -108,6 +114,15 @@ pub enum SearchValue {
         end: f64,
         value_type: ValueType,
         exclude: bool,
+    },
+    /// 特征码搜索，支持通配符
+    /// 每个元素: (value, mask)
+    /// - mask=0xFF: 完全匹配该字节
+    /// - mask=0x00: 完全通配 (??)
+    /// - mask=0xF0: 高半字节匹配 (A?)
+    /// - mask=0x0F: 低半字节匹配 (?A)
+    Pattern {
+        pattern: Vec<(u8, u8)>,
     },
 }
 
@@ -152,6 +167,7 @@ impl SearchValue {
             SearchValue::RangeInt { value_type, .. } => *value_type,
             SearchValue::FixedFloat { value_type, .. } => *value_type,
             SearchValue::RangeFloat { value_type, .. } => *value_type,
+            SearchValue::Pattern { .. } => ValueType::Pattern,
         }
     }
 
@@ -171,6 +187,20 @@ impl SearchValue {
     }
 
     #[inline]
+    pub fn is_pattern(&self) -> bool {
+        matches!(self, SearchValue::Pattern { .. })
+    }
+
+    /// 获取特征码长度
+    #[inline]
+    pub fn pattern_len(&self) -> Option<usize> {
+        match self {
+            SearchValue::Pattern { pattern } => Some(pattern.len()),
+            _ => None,
+        }
+    }
+
+    #[inline]
     pub fn bytes(&self) -> anyhow::Result<&[u8]> {
         match self {
             SearchValue::FixedInt { value, value_type } => {
@@ -178,6 +208,21 @@ impl SearchValue {
                 Ok(&value[..size])
             },
             _ => Err(anyhow!("unsupported value type to get bytes: {:?}", self)),
+        }
+    }
+
+    /// 特征码匹配
+    #[inline]
+    pub fn match_pattern(&self, data: &[u8]) -> bool {
+        if let SearchValue::Pattern { pattern } = self {
+            if data.len() < pattern.len() {
+                return false;
+            }
+            pattern.iter().enumerate().all(|(i, &(value, mask))| {
+                (data[i] & mask) == (value & mask)
+            })
+        } else {
+            false
         }
     }
 
@@ -277,6 +322,10 @@ impl SearchValue {
                 } else {
                     Ok(other_value >= *start && other_value <= *end)
                 }
+            },
+            SearchValue::Pattern { pattern } => {
+                // Pattern 使用 match_pattern 方法
+                Ok(self.match_pattern(other))
             },
         }
     }

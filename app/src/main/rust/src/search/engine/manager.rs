@@ -70,6 +70,8 @@ pub struct SearchEngineManager {
     search_handle: Option<JoinHandle<()>>,
     /// 兼容模式：所有搜索结果都以模糊搜索格式存储，支持精确搜索和模糊搜索互相切换
     compatibility_mode: bool,
+    /// 当前特征码搜索的 pattern 长度（用于 UI 显示）
+    current_pattern_len: Option<usize>,
 }
 
 impl SearchEngineManager {
@@ -82,6 +84,7 @@ impl SearchEngineManager {
             cancel_token: None,
             search_handle: None,
             compatibility_mode: false,
+            current_pattern_len: None,
         }
     }
 
@@ -95,6 +98,11 @@ impl SearchEngineManager {
     /// Get compatibility mode
     pub fn get_compatibility_mode(&self) -> bool {
         self.compatibility_mode
+    }
+
+    /// Get current pattern length (for UI display)
+    pub fn get_current_pattern_len(&self) -> Option<usize> {
+        self.current_pattern_len
     }
 
     /// Sets the shared buffer for progress communication.
@@ -1069,6 +1077,227 @@ impl SearchEngineManager {
         };
 
         // Set status after releasing write lock.
+        if let Ok(manager) = SEARCH_ENGINE_MANAGER.read() {
+            if success {
+                manager.shared_buffer.write_status(SearchStatus::Completed);
+            } else {
+                manager.shared_buffer.write_status(SearchStatus::Error);
+                manager.shared_buffer.write_error_code(SearchErrorCode::InternalError);
+            }
+        }
+    }
+
+    /// Starts async pattern search.
+    /// 
+    /// # Parameters
+    /// * `pattern` - Pattern bytes as (value, mask) pairs
+    /// * `regions` - Memory regions to search
+    pub fn start_pattern_search_async(&mut self, pattern: Vec<(u8, u8)>, regions: Vec<(u64, u64)>) -> Result<()> {
+        if !self.is_initialized() {
+            self.shared_buffer.write_status(SearchStatus::Error);
+            self.shared_buffer.write_error_code(SearchErrorCode::NotInitialized);
+            return Err(anyhow!("SearchEngineManager not initialized"));
+        }
+
+        if self.is_searching() {
+            self.shared_buffer.write_status(SearchStatus::Error);
+            self.shared_buffer.write_error_code(SearchErrorCode::AlreadySearching);
+            return Err(anyhow!("Search already in progress"));
+        }
+
+        if pattern.is_empty() {
+            self.shared_buffer.write_status(SearchStatus::Error);
+            self.shared_buffer.write_error_code(SearchErrorCode::InvalidQuery);
+            return Err(anyhow!("Empty pattern"));
+        }
+
+        // 保存 pattern 长度
+        self.current_pattern_len = Some(pattern.len());
+
+        // Prepare result manager
+        let result_mgr = self
+            .result_manager
+            .as_mut()
+            .ok_or_else(|| anyhow!("SearchEngineManager's result_manager not initialized"))?;
+
+        result_mgr.clear()?;
+        result_mgr.set_mode(SearchResultMode::Exact)?;
+
+        // Reset shared buffer
+        self.shared_buffer.reset();
+        self.shared_buffer.clear_cancel_flag();
+        self.shared_buffer.write_status(SearchStatus::Searching);
+
+        let cancel_token = CancellationToken::new();
+        self.cancel_token = Some(cancel_token.clone());
+
+        let chunk_size = self.chunk_size;
+
+        let handle = TOKIO_RUNTIME.spawn(async move {
+            Self::run_pattern_search_task(pattern, regions, chunk_size, cancel_token).await;
+        });
+
+        self.search_handle = Some(handle);
+        Ok(())
+    }
+
+    /// Internal async pattern search task.
+    async fn run_pattern_search_task(
+        pattern: Vec<(u8, u8)>,
+        regions: Vec<(u64, u64)>,
+        chunk_size: usize,
+        cancel_token: CancellationToken,
+    ) {
+        use super::pattern_search;
+
+        let start_time = Instant::now();
+        let total_regions = regions.len();
+
+        if log_enabled!(Level::Debug) {
+            debug!(
+                "Starting pattern search: pattern_len={}, regions={}, chunk_size={} KB",
+                pattern.len(),
+                regions.len(),
+                chunk_size / 1024
+            );
+        }
+
+        let completed_regions = Arc::new(AtomicUsize::new(0));
+        let total_found_count = Arc::new(AtomicI64::new(0));
+        let cancelled = Arc::new(AtomicBool::new(false));
+
+        let completed_regions_clone = Arc::clone(&completed_regions);
+        let total_found_clone = Arc::clone(&total_found_count);
+        let cancelled_clone = Arc::clone(&cancelled);
+        let cancel_token_clone = cancel_token.clone();
+
+        let search_result = tokio::task::spawn_blocking(move || {
+            let mut all_results: Vec<u64> = regions
+                .par_iter()
+                .enumerate()
+                .filter_map(|(idx, (start, end))| {
+                    // Check cancellation
+                    if cancel_token_clone.is_cancelled() || cancelled_clone.load(AtomicOrdering::Relaxed) {
+                        cancelled_clone.store(true, AtomicOrdering::Relaxed);
+                        return None;
+                    }
+
+                    if let Ok(manager) = SEARCH_ENGINE_MANAGER.read() {
+                        if manager.shared_buffer.is_cancel_requested() {
+                            cancelled_clone.store(true, AtomicOrdering::Relaxed);
+                            return None;
+                        }
+                    }
+
+                    let check_cancelled_for_region = || -> bool {
+                        if cancel_token_clone.is_cancelled() || cancelled_clone.load(AtomicOrdering::Relaxed) {
+                            cancelled_clone.store(true, AtomicOrdering::Relaxed);
+                            return true;
+                        }
+                        if let Ok(manager) = SEARCH_ENGINE_MANAGER.read() {
+                            if manager.shared_buffer.is_cancel_requested() {
+                                cancelled_clone.store(true, AtomicOrdering::Relaxed);
+                                return true;
+                            }
+                        }
+                        false
+                    };
+
+                    let result = pattern_search::search_region_pattern_with_cancel(
+                        &pattern,
+                        *start,
+                        *end,
+                        chunk_size,
+                        &check_cancelled_for_region,
+                    );
+
+                    let region_results = match result {
+                        Ok(results) => results,
+                        Err(e) => {
+                            error!("Failed to search pattern in region {}: {:?}", idx, e);
+                            Vec::new()
+                        },
+                    };
+
+                    // Update progress
+                    let completed = completed_regions_clone.fetch_add(1, AtomicOrdering::Relaxed) + 1;
+                    let found_in_region = region_results.len() as i64;
+                    let total_found = total_found_clone.fetch_add(found_in_region, AtomicOrdering::Relaxed) + found_in_region;
+
+                    if let Ok(manager) = SEARCH_ENGINE_MANAGER.read() {
+                        let progress = ((completed as f64 / total_regions as f64) * 100.0) as i32;
+                        manager.shared_buffer.update_progress(progress, completed as i32, total_found);
+                        manager.shared_buffer.tick_heartbeat();
+                    }
+
+                    Some(region_results)
+                })
+                .reduce(Vec::new, |mut a, mut b| {
+                    a.append(&mut b);
+                    a
+                });
+
+            // Sort and dedup
+            all_results.sort_unstable();
+            all_results.dedup();
+
+            all_results
+        })
+        .await;
+
+        // Check if cancelled
+        if cancel_token.is_cancelled() || cancelled.load(AtomicOrdering::Relaxed) {
+            if let Ok(manager) = SEARCH_ENGINE_MANAGER.read() {
+                manager.shared_buffer.write_status(SearchStatus::Cancelled);
+            }
+            info!("Pattern search cancelled");
+            return;
+        }
+
+        // Process results
+        let (final_count, success) = match search_result {
+            Ok(all_results) => {
+                match SEARCH_ENGINE_MANAGER.write() {
+                    Ok(mut manager) => {
+                        if let Some(ref mut result_mgr) = manager.result_manager {
+                            // Convert addresses to SearchResultItem with Pattern type
+                            let converted_results: Vec<_> = all_results
+                                .into_iter()
+                                .map(|addr| SearchResultItem::new_exact(addr, ValueType::Pattern))
+                                .collect();
+
+                            if let Err(e) = result_mgr.add_results_batch(converted_results) {
+                                error!("Failed to add pattern results: {:?}", e);
+                            }
+
+                            let elapsed = start_time.elapsed().as_millis() as u64;
+                            let final_count = result_mgr.total_count();
+
+                            info!("Pattern search completed: {} results in {} ms", final_count, elapsed);
+
+                            manager.shared_buffer.write_found_count(final_count as i64);
+                            manager.shared_buffer.write_progress(100);
+                            manager.shared_buffer.write_regions_done(total_regions as i32);
+
+                            (final_count as i64, true)
+                        } else {
+                            error!("result_manager is None when processing pattern results");
+                            (0, false)
+                        }
+                    },
+                    Err(e) => {
+                        error!("Failed to acquire write lock for pattern results: {:?}", e);
+                        (0, false)
+                    },
+                }
+            },
+            Err(e) => {
+                error!("Pattern search task failed: {:?}", e);
+                (0, false)
+            },
+        };
+
+        // Set status after releasing write lock
         if let Ok(manager) = SEARCH_ENGINE_MANAGER.read() {
             if success {
                 manager.shared_buffer.write_status(SearchStatus::Completed);

@@ -52,6 +52,7 @@ fn jint_to_value_type(value: jint) -> Option<ValueType> {
         5 => Some(ValueType::Double),
         6 => Some(ValueType::Auto),
         7 => Some(ValueType::Xor),
+        8 => Some(ValueType::Pattern),
         _ => None,
     }
 }
@@ -107,6 +108,22 @@ fn format_value(bytes: &[u8], typ: ValueType) -> String {
                 format!("{}", value)
             } else {
                 "N/A".to_string()
+            }
+        },
+        ValueType::Pattern => {
+            // Pattern 类型显示十六进制内容，最多显示 16 字节
+            const MAX_DISPLAY_BYTES: usize = 16;
+            let display_len = bytes.len().min(MAX_DISPLAY_BYTES);
+            let hex_str: String = bytes[..display_len]
+                .iter()
+                .map(|b| format!("{:02X}", b))
+                .collect::<Vec<_>>()
+                .join(" ");
+            
+            if bytes.len() > MAX_DISPLAY_BYTES {
+                format!("{}...", hex_str)
+            } else {
+                hex_str
             }
         },
     }
@@ -387,17 +404,29 @@ pub fn jni_get_results(mut env: JNIEnv, _class: JObject, start: jint, size: jint
 
         let driver_manager = DRIVER_MANAGER.read().map_err(|_| anyhow!("Failed to acquire DriverManager read lock"))?;
 
+        // 获取当前 pattern 长度（用于 Pattern 类型）
+        let pattern_len = search_manager.get_current_pattern_len().unwrap_or(0);
+
         for (i, (native_position, item)) in results.into_iter().enumerate() {
             let obj = match item {
                 SearchResultItem::Exact(exact) => {
                     let value_str = {
-                        let size = exact.typ.size();
-                        let mut buffer = vec![0u8; size];
-
-                        if driver_manager.read_memory_unified(exact.address, &mut buffer, None).is_ok() {
-                            format_value(&buffer, exact.typ)
+                        // Pattern 类型使用 pattern_len，其他类型使用 typ.size()
+                        let size = if exact.typ == ValueType::Pattern {
+                            pattern_len
                         } else {
+                            exact.typ.size()
+                        };
+                        
+                        if size == 0 {
                             "N/A".to_string()
+                        } else {
+                            let mut buffer = vec![0u8; size];
+                            if driver_manager.read_memory_unified(exact.address, &mut buffer, None).is_ok() {
+                                format_value(&buffer, exact.typ)
+                            } else {
+                                "N/A".to_string()
+                            }
                         }
                     };
 
@@ -792,6 +821,65 @@ pub fn jni_start_fuzzy_refine_async(mut env: JNIEnv, _class: JObject, condition_
         manager.start_fuzzy_refine_async(condition)?;
 
         Ok(JNI_TRUE)
+    })()
+    .or_throw(&mut env)
+}
+
+
+/// Starts async pattern search.
+/// 
+/// Parameters:
+/// - pattern: Pattern string like "1A 2B ?C D? ?? FF"
+/// - regions: Array of [start1, end1, start2, end2, ...] memory region pairs
+#[jni_method(70, "moe/fuqiuluo/mamu/driver/SearchEngine", "nativeStartPatternSearchAsync", "(Ljava/lang/String;[J)Z")]
+pub fn jni_start_pattern_search_async(
+    mut env: JNIEnv,
+    _class: JObject,
+    pattern_str: JString,
+    regions: JLongArray,
+) -> jboolean {
+    use crate::search::parse_pattern;
+
+    (|| -> JniResult<jboolean> {
+        let pattern_input: String = env.get_string(&pattern_str)?.into();
+
+        let pattern = parse_pattern(&pattern_input)
+            .map_err(|e| anyhow!("Pattern parse error: {}", e))?;
+
+        let regions_len = env.get_array_length(&regions)? as usize;
+        if regions_len % 2 != 0 {
+            return Err(anyhow!("Regions array length must be even"));
+        }
+
+        let mut regions_buf = vec![0i64; regions_len];
+        env.get_long_array_region(&regions, 0, &mut regions_buf)?;
+
+        let memory_regions: Vec<(u64, u64)> = regions_buf
+            .chunks(2)
+            .map(|chunk| (chunk[0] as u64, chunk[1] as u64))
+            .collect();
+
+        let mut manager = SEARCH_ENGINE_MANAGER
+            .write()
+            .map_err(|_| anyhow!("Failed to acquire SearchEngineManager write lock"))?;
+
+        manager.start_pattern_search_async(pattern, memory_regions)?;
+
+        Ok(JNI_TRUE)
+    })()
+    .or_throw(&mut env)
+}
+
+/// Gets the current pattern length (for UI display).
+/// Returns -1 if no pattern search has been performed.
+#[jni_method(70, "moe/fuqiuluo/mamu/driver/SearchEngine", "nativeGetCurrentPatternLen", "()I")]
+pub fn jni_get_current_pattern_len(mut env: JNIEnv, _class: JObject) -> jint {
+    (|| -> JniResult<jint> {
+        let manager = SEARCH_ENGINE_MANAGER
+            .read()
+            .map_err(|_| anyhow!("Failed to acquire SearchEngineManager read lock"))?;
+
+        Ok(manager.get_current_pattern_len().map(|len| len as jint).unwrap_or(-1))
     })()
     .or_throw(&mut env)
 }

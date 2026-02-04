@@ -149,6 +149,16 @@ enum class DisplayValueType(
         nativeId = 105,
         memorySize = Long.MIN_VALUE,
         isDisabled = true
+    ),
+    PATTERN(
+        code = "P",
+        displayName = "Pattern (特征码)",
+        rangeDescription = "输入特征码，如 1A 2B ?C D? ?? FF",
+        iconRes = R.drawable.icon_search_24px,
+        textColor = 0xFFFFAA00.toInt(),
+        nativeId = 8,
+        memorySize = 0,  // 可变长度
+        isDisabled = false
     );
 
     companion object {

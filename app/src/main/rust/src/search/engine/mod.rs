@@ -6,6 +6,7 @@ pub mod fuzzy_search;
 pub mod group_search;
 pub mod manager;
 mod memchr_ext;
+pub mod pattern_search;
 pub mod shared_buffer;
 pub mod single_search;
 

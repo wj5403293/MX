@@ -326,6 +326,7 @@ class SearchResultAdapter(
         /**
          * 根据数据类型格式化显示值
          * 对于浮点类型，确保显示为浮点数格式（如 1 -> 1.0）
+         * 对于 Pattern 类型，直接显示 Rust 返回的十六进制内容
          */
         private fun formatValueByType(value: String, type: DisplayValueType): String {
             return try {
@@ -339,6 +340,10 @@ class SearchResultAdapter(
                         // 直接解析为双精度浮点数并格式化显示
                         val doubleValue = value.toDoubleOrNull() ?: return value
                         "%.10g".format(doubleValue)
+                    }
+                    DisplayValueType.PATTERN -> {
+                        // Pattern 类型直接显示 Rust 返回的十六进制内容
+                        value
                     }
                     else -> value
                 }

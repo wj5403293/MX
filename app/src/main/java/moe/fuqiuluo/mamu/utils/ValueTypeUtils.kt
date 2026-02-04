@@ -135,6 +135,18 @@ object ValueTypeUtils {
             DisplayValueType.ARM, DisplayValueType.ARM64 -> {
                 TODO("ARM64")
             }
+
+            DisplayValueType.PATTERN -> {
+                // Pattern 类型支持十六进制输入，格式: "1A 2B 3C" 或 "1A2B3C"
+                val hexStr = formattedExpr.replace(" ", "").uppercase()
+                if (hexStr.length % 2 != 0) {
+                    throw IllegalArgumentException("Invalid hex string length: must be even")
+                }
+                if (!hexStr.all { it in '0'..'9' || it in 'A'..'F' }) {
+                    throw IllegalArgumentException("Invalid hex characters in pattern")
+                }
+                return hexStr.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+            }
         }
     }
 
@@ -200,6 +212,11 @@ object ValueTypeUtils {
 
             DisplayValueType.AUTO, DisplayValueType.HEX_MIXED,
             DisplayValueType.ARM, DisplayValueType.ARM64 -> {
+                bytes.toHexString(hexFormat)
+            }
+
+            DisplayValueType.PATTERN -> {
+                // Pattern type displays as hex
                 bytes.toHexString(hexFormat)
             }
         }
