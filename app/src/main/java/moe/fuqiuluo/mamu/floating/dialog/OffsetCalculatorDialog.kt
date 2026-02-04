@@ -61,6 +61,23 @@ class OffsetCalculatorDialog(
     private var calculateJob: Job? = null
     private lateinit var binding: DialogOffsetCalculatorBinding
 
+    // 历史记录（静态保存，跨实例共享）
+    companion object {
+        private val expressionHistory = mutableListOf<HistoryEntry>()
+        private const val MAX_HISTORY_SIZE = 30
+
+        fun clearHistory() {
+            expressionHistory.clear()
+        }
+    }
+
+    data class HistoryEntry(
+        val baseAddress: Long,
+        val expression: String,
+        val finalAddress: Long,
+        val hexMode: Boolean
+    )
+
     @SuppressLint("ClickableViewAccessibility", "SetTextI18n")
     override fun setupDialog() {
         binding = DialogOffsetCalculatorBinding.inflate(LayoutInflater.from(dialog.context))
@@ -232,7 +249,7 @@ class OffsetCalculatorDialog(
             }
 
             override fun onHistory() {
-                notification.showSuccess("历史记录功能开发中")
+                showHistoryPopup()
             }
 
             override fun onPaste() {
@@ -701,6 +718,46 @@ class OffsetCalculatorDialog(
     }
 
     /**
+     * 显示历史记录弹窗
+     */
+    private fun showHistoryPopup() {
+        if (expressionHistory.isEmpty()) {
+            notification.showWarning("暂无历史记录")
+            return
+        }
+
+        OffsetCalculatorHistoryDialog(
+            context = context,
+            history = expressionHistory.toList(),
+            onItemSelected = { entry ->
+                // 填充选中的历史记录
+                binding.inputBaseAddress.setText("%X".format(entry.baseAddress))
+                binding.inputExpression.setText(entry.expression)
+                binding.cbHexMode.isChecked = entry.hexMode
+                // 光标移到表达式末尾
+                binding.inputExpression.setSelection(entry.expression.length)
+            }
+        ).show()
+    }
+
+    /**
+     * 添加到历史记录
+     */
+    private fun addToHistory(baseAddress: Long, expression: String, finalAddress: Long, hexMode: Boolean) {
+        if (expression.isBlank()) return
+        
+        val entry = HistoryEntry(baseAddress, expression, finalAddress, hexMode)
+        // 移除相同表达式的旧记录
+        expressionHistory.removeAll { it.baseAddress == baseAddress && it.expression == expression }
+        // 添加到开头
+        expressionHistory.add(0, entry)
+        // 限制大小
+        while (expressionHistory.size > MAX_HISTORY_SIZE) {
+            expressionHistory.removeAt(expressionHistory.lastIndex)
+        }
+    }
+
+    /**
      * 跳转到最终地址
      */
     private fun jumpToFinalAddress() {
@@ -715,6 +772,12 @@ class OffsetCalculatorDialog(
         InputHistoryManager.saveFromEditText(binding.inputBaseAddress, InputHistoryManager.Keys.OFFSET_CALCULATOR_BASE)
         InputHistoryManager.saveFromEditText(binding.inputExpression, InputHistoryManager.Keys.OFFSET_CALCULATOR_OFFSET)
 
+        // 添加到历史记录
+        val baseAddressStr = binding.inputBaseAddress.text.toString().trim()
+        val expressionStr = binding.inputExpression.text.toString().trim()
+        val baseAddress = try { baseAddressStr.toLong(16) } catch (e: Exception) { 0L }
+        addToHistory(baseAddress, expressionStr, result.finalAddress, binding.cbHexMode.isChecked)
+
         // 使用 JumpToMemoryPreview 事件，会先切换到内存预览 Tab 再跳转
         FloatingEventBus.tryEmitUIAction(
             UIActionEvent.JumpToMemoryPreview(address = result.finalAddress)
@@ -725,6 +788,11 @@ class OffsetCalculatorDialog(
 
     override fun dismiss() {
         calculateJob?.cancel()
+        // 关闭时保存输入内容，确保下次打开时能恢复
+        if (::binding.isInitialized) {
+            InputHistoryManager.saveFromEditText(binding.inputBaseAddress, InputHistoryManager.Keys.OFFSET_CALCULATOR_BASE)
+            InputHistoryManager.saveFromEditText(binding.inputExpression, InputHistoryManager.Keys.OFFSET_CALCULATOR_OFFSET)
+        }
         super.dismiss()
     }
 }
