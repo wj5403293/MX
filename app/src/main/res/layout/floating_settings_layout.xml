@@ -839,35 +839,6 @@
                     android:text="@string/settings_ui_settings"
                     android:textColor="@color/floating_primary" />
 
-                <!-- Tab切换动画 -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:padding="@dimen/floating_spacing_sm">
-
-                    <com.google.android.material.textview.MaterialTextView
-                        style="@style/FloatingText.Body"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/settings_tab_switch_animation" />
-
-                    <com.google.android.material.switchmaterial.SwitchMaterial
-                        android:id="@+id/switch_tab_animation"
-                        style="@style/FloatingSwitch"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
-
-                </LinearLayout>
-
-                <com.google.android.material.divider.MaterialDivider
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginVertical="@dimen/floating_spacing_xs"
-                    app:dividerColor="@color/floating_divider" />
-
                 <!-- 键盘 -->
                 <LinearLayout
                     android:id="@+id/setting_keyboard"

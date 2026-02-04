@@ -27,7 +27,6 @@ private const val KEY_FILTER_LINUX_PROCESS = "filter_linux_process"
 private const val KEY_TOP_MOST_LAYER = "top_most_layer2"
 private const val KEY_MEMORY_BUFFER_SIZE = "memory_buffer_size"
 private const val KEY_SEARCH_PAGE_SIZE = "search_page_size"
-private const val KEY_TAB_SWITCH_ANIMATION = "tab_switch_animation"
 private const val KEY_RUDE_SEARCH = "rude_search"
 private const val KEY_FAILED_PAGE_THRESHOLD = "failed_page_threshold"
 private const val KEY_CHUNK_SIZE = "chunk_size"
@@ -52,7 +51,6 @@ private const val DEFAULT_LANGUAGE = 0 // 0=中文, 1=英文
 private const val DEFAULT_FILTER_SYSTEM_PROCESS = true // 默认过滤系统进程
 private const val DEFAULT_FILTER_LINUX_PROCESS = true // 默认过滤Linux进程
 private const val DEFAULT_TOP_MOST_LAYER = false // 默认不启用最高层级绘制
-private const val DEFAULT_TAB_SWITCH_ANIMATION = false // 默认不启用Tab切换动画
 private const val DEFAULT_RUDE_SEARCH = true // 默认不启用粗鲁搜索模式
 private const val DEFAULT_FAILED_PAGE_THRESHOLD = 4 // 默认连续失败页阈值
 private const val DEFAULT_DIALOG_TRANSPARENCY_ENABLED = true // 默认启用dialog透明度
@@ -248,15 +246,6 @@ var MMKV.selectedMemoryRanges: Set<MemoryRange>
     }.toSet()
     set(value) {
         encode(KEY_MEMORY_RANGES, value.map { it.code }.toSet())
-    }
-
-/**
- * Tab切换动画
- */
-var MMKV.tabSwitchAnimation: Boolean
-    get() = decodeBool(KEY_TAB_SWITCH_ANIMATION, DEFAULT_TAB_SWITCH_ANIMATION)
-    set(value) {
-        encode(KEY_TAB_SWITCH_ANIMATION, value)
     }
 
 /**

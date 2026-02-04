@@ -30,7 +30,7 @@ import moe.fuqiuluo.mamu.data.settings.memoryPreviewInfiniteScroll
 import moe.fuqiuluo.mamu.data.settings.saveListUpdateInterval
 import moe.fuqiuluo.mamu.data.settings.selectedMemoryRanges
 import moe.fuqiuluo.mamu.data.settings.skipMemoryOption
-import moe.fuqiuluo.mamu.data.settings.tabSwitchAnimation
+
 import moe.fuqiuluo.mamu.data.settings.topMostLayer
 import moe.fuqiuluo.mamu.driver.FreezeManager
 import moe.fuqiuluo.mamu.driver.SearchEngine
@@ -65,7 +65,6 @@ class SettingsController(
         setupKeyboard()
         setupLanguage()
         setupTopMostLayer(mmkv)
-        setupTabAnimation(mmkv)
         setupMemoryPreviewInfiniteScroll(mmkv)
 
         subscribeToProcessStateEvents()
@@ -319,15 +318,6 @@ class SettingsController(
                         status
                     )
                 )
-            }
-        }
-    }
-
-    private fun setupTabAnimation(mmkv: MMKV) {
-        binding.switchTabAnimation.apply {
-            isChecked = mmkv.tabSwitchAnimation
-            setOnCheckedChangeListener { _, isChecked ->
-                mmkv.tabSwitchAnimation = isChecked
             }
         }
     }
