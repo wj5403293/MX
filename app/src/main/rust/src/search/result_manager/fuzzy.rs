@@ -66,13 +66,15 @@ impl FuzzySearchResultItem {
     /// 获取值的有效字节数
     #[inline]
     pub fn value_size(&self) -> usize {
-        self.value_type.size()
+        let vt = self.value_type;
+        vt.size()
     }
 
     /// 读取为 i64 值（用于整数比较）
     #[inline]
     pub fn as_i64(&self) -> i64 {
-        match self.value_type {
+        let vt = self.value_type;
+        match vt {
             ValueType::Byte => self.value[0] as i8 as i64,
             ValueType::Word => i16::from_le_bytes(self.value[..2].try_into().unwrap()) as i64,
             ValueType::Dword | ValueType::Auto | ValueType::Xor => i32::from_le_bytes(self.value[..4].try_into().unwrap()) as i64,
@@ -85,7 +87,8 @@ impl FuzzySearchResultItem {
     /// 读取为 f64 值（用于浮点数比较）
     #[inline]
     pub fn as_f64(&self) -> f64 {
-        match self.value_type {
+        let vt = self.value_type;
+        match vt {
             ValueType::Byte => self.value[0] as i8 as f64,
             ValueType::Word => i16::from_le_bytes(self.value[..2].try_into().unwrap()) as f64,
             ValueType::Dword | ValueType::Auto | ValueType::Xor => i32::from_le_bytes(self.value[..4].try_into().unwrap()) as f64,
@@ -98,9 +101,10 @@ impl FuzzySearchResultItem {
     /// 检查新值是否满足模糊搜索条件
     #[inline]
     pub fn matches_condition(&self, new_bytes: &[u8], condition: FuzzyCondition) -> bool {
-        let new_item = FuzzySearchResultItem::from_bytes(self.address, new_bytes, self.value_type);
+        let vt = self.value_type;
+        let new_item = FuzzySearchResultItem::from_bytes(self.address, new_bytes, vt);
 
-        if self.value_type.is_float_type() {
+        if vt.is_float_type() {
             self.matches_condition_float(&new_item, condition)
         } else {
             self.matches_condition_int(&new_item, condition)
@@ -345,18 +349,35 @@ impl FuzzySearchResultManager {
             return Ok(Vec::new());
         }
 
-        let mut results = Vec::with_capacity(end - start);
+        let result_count = end - start;
+        let mut results = Vec::with_capacity(result_count);
+        let memory_len = self.memory_buffer.len();
 
-        for i in start..end {
-            if i < self.memory_buffer.len() {
-                results.push(self.memory_buffer[i]);
-            } else {
-                let disk_index = i - self.memory_buffer.len();
+        // 计算内存部分的范围（start 和 end 都限制在 memory_len 内）
+        if start < memory_len {
+            let memory_start = start;
+            let memory_end = end.min(memory_len);
+            results.extend_from_slice(&self.memory_buffer[memory_start..memory_end]);
+        }
+
+        // 计算磁盘部分的范围
+        if end > memory_len {
+            let disk_start = start.saturating_sub(memory_len);
+            let disk_end = end - memory_len;
+            
+            if disk_end <= self.disk_count {
                 if let Some(ref mmap) = self.mmap {
-                    let offset = disk_index * Self::ITEM_SIZE;
+                    let disk_count = disk_end - disk_start;
+                    let src_offset = disk_start * Self::ITEM_SIZE;
+                    
+                    // 预留空间
+                    results.reserve(disk_count);
+                    
                     unsafe {
-                        let ptr = mmap.as_ptr().add(offset) as *const FuzzySearchResultItem;
-                        results.push(*ptr);
+                        let src = mmap.as_ptr().add(src_offset) as *const FuzzySearchResultItem;
+                        let dst_start = results.len();
+                        results.set_len(dst_start + disk_count);
+                        std::ptr::copy_nonoverlapping(src, results.as_mut_ptr().add(dst_start), disk_count);
                     }
                 }
             }
@@ -404,11 +425,129 @@ impl FuzzySearchResultManager {
     }
 
     /// 批量替换所有结果（用于细化搜索后）
+    /// 优化：直接批量写入，避免逐个 add_result 的开销
     pub fn replace_all(&mut self, results: Vec<FuzzySearchResultItem>) -> Result<()> {
-        self.clear()?;
-        for item in results {
-            self.add_result(item)?;
+        // 先清理旧数据
+        self.memory_buffer.clear();
+        self.total_count = 0;
+        self.disk_count = 0;
+
+        if results.is_empty() {
+            // 清理磁盘文件（如果存在）
+            if self.disk_file.is_some() {
+                drop(self.mmap.take());
+                drop(self.disk_file.take());
+                if let Some(ref path) = self.disk_file_path {
+                    if path.exists() {
+                        let _ = std::fs::remove_file(path);
+                    }
+                }
+                self.disk_file_path = None;
+            }
+            return Ok(());
         }
+
+        let total = results.len();
+        
+        // 如果全部能放入内存缓冲区
+        if self.memory_buffer_capacity > 0 && total <= self.memory_buffer_capacity {
+            // 清理磁盘文件（如果存在）
+            if self.disk_file.is_some() {
+                drop(self.mmap.take());
+                drop(self.disk_file.take());
+                if let Some(ref path) = self.disk_file_path {
+                    if path.exists() {
+                        let _ = std::fs::remove_file(path);
+                    }
+                }
+                self.disk_file_path = None;
+            }
+            self.memory_buffer = results;
+            self.total_count = total;
+            return Ok(());
+        }
+
+        // 需要使用磁盘
+        if self.memory_buffer_capacity == 0 {
+            // 直接写磁盘模式：复用现有文件
+            if self.disk_file.is_none() {
+                self.init_disk_file()?;
+            }
+            self.write_batch_to_disk_reuse(&results)?;
+            self.total_count = total;
+        } else {
+            // 混合模式：先填满内存，剩余写磁盘
+            let split_point = self.memory_buffer_capacity;
+            
+            // 直接移动数据到 memory_buffer，避免 to_vec() 复制
+            let mut results = results;
+            let disk_part: Vec<_> = results.drain(split_point..).collect();
+            self.memory_buffer = results;
+            
+            if !disk_part.is_empty() {
+                if self.disk_file.is_none() {
+                    self.init_disk_file()?;
+                }
+                self.write_batch_to_disk_reuse(&disk_part)?;
+            } else {
+                // 不需要磁盘，清理
+                if self.disk_file.is_some() {
+                    drop(self.mmap.take());
+                    drop(self.disk_file.take());
+                    if let Some(ref path) = self.disk_file_path {
+                        if path.exists() {
+                            let _ = std::fs::remove_file(path);
+                        }
+                    }
+                    self.disk_file_path = None;
+                }
+            }
+            self.total_count = total;
+        }
+
+        Ok(())
+    }
+
+    /// 批量写入磁盘（复用现有文件）
+    fn write_batch_to_disk_reuse(&mut self, items: &[FuzzySearchResultItem]) -> Result<()> {
+        if items.is_empty() {
+            self.disk_count = 0;
+            return Ok(());
+        }
+
+        let required_size = items.len() * Self::ITEM_SIZE;
+        
+        // 确保 mmap 存在
+        if self.mmap.is_none() {
+            return Err(anyhow!("Disk file not initialized"));
+        }
+
+        // 确保文件足够大
+        {
+            let mmap = self.mmap.as_ref().unwrap();
+            let current_size = mmap.len();
+            if required_size > current_size {
+                // 需要扩展文件
+                drop(self.mmap.take());
+                let new_size = ((required_size / (128 * 1024 * 1024)) + 1) * 128 * 1024 * 1024;
+                if let Some(ref file) = self.disk_file {
+                    file.set_len(new_size as u64)?;
+                    self.mmap = Some(unsafe { MmapMut::map_mut(file)? });
+                } else {
+                    return Err(anyhow!("Disk file handle is None"));
+                }
+            }
+        }
+
+        // 批量写入
+        if let Some(ref mut mmap) = self.mmap {
+            unsafe {
+                let dst = mmap.as_mut_ptr() as *mut FuzzySearchResultItem;
+                std::ptr::copy_nonoverlapping(items.as_ptr(), dst, items.len());
+            }
+            self.disk_count = items.len();
+        }
+
         Ok(())
     }
 

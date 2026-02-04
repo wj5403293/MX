@@ -1,6 +1,6 @@
 //! Search engine implementation modules.
 
-mod batch_reader;
+pub(crate) mod batch_reader;
 pub mod filter;
 pub mod fuzzy_search;
 pub mod group_search;

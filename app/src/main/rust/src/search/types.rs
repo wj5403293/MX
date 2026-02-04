@@ -2,45 +2,37 @@ use anyhow::anyhow;
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(i32)]
 pub enum ValueType {
-    Byte,
-    Word,
-    Dword,
-    Qword,
-    Float,
-    Double,
-    Auto,
-    Xor,
+    Byte = 0,
+    Word = 1,
+    Dword = 2,
+    Qword = 3,
+    Float = 4,
+    Double = 5,
+    Auto = 6,
+    Xor = 7,
 }
 
 impl ValueType {
     #[inline]
     pub fn from_id(id: i32) -> Option<Self> {
         match id {
-            0 => Self::Byte.into(),
-            1 => Self::Word.into(),
-            2 => Self::Dword.into(),
-            3 => Self::Qword.into(),
-            4 => Self::Float.into(),
-            5 => Self::Double.into(),
-            6 => Self::Auto.into(),
-            7 => Self::Xor.into(),
+            0 => Some(Self::Byte),
+            1 => Some(Self::Word),
+            2 => Some(Self::Dword),
+            3 => Some(Self::Qword),
+            4 => Some(Self::Float),
+            5 => Some(Self::Double),
+            6 => Some(Self::Auto),
+            7 => Some(Self::Xor),
             _ => None,
         }
     }
 
     #[inline]
     pub fn to_id(&self) -> i32 {
-        match self {
-            ValueType::Byte => 0,
-            ValueType::Word => 1,
-            ValueType::Dword => 2,
-            ValueType::Qword => 3,
-            ValueType::Float => 4,
-            ValueType::Double => 5,
-            ValueType::Auto => 6,
-            ValueType::Xor => 7,
-        }
+        *self as i32
     }
 
     #[inline]

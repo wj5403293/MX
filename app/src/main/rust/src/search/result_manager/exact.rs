@@ -5,7 +5,7 @@ use memmap2::MmapMut;
 use std::fs::{File, OpenOptions};
 use std::path::PathBuf;
 
-#[repr(packed)]
+#[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct ExactSearchResultItem {
     pub address: u64,
@@ -189,18 +189,35 @@ impl ExactSearchResultManager {
             return Ok(Vec::new());
         }
 
-        let mut results = Vec::with_capacity(end - start);
+        let result_count = end - start;
+        let mut results = Vec::with_capacity(result_count);
+        let memory_len = self.memory_buffer.len();
 
-        for i in start..end {
-            if i < self.memory_buffer.len() {
-                results.push(self.memory_buffer[i]);
-            } else {
-                let disk_index = i - self.memory_buffer.len();
+        // 计算内存部分的范围（start 和 end 都限制在 memory_len 内）
+        if start < memory_len {
+            let memory_start = start;
+            let memory_end = end.min(memory_len);
+            results.extend_from_slice(&self.memory_buffer[memory_start..memory_end]);
+        }
+
+        // 计算磁盘部分的范围
+        if end > memory_len {
+            let disk_start = start.saturating_sub(memory_len);
+            let disk_end = end - memory_len;
+            
+            if disk_end <= self.disk_count {
                 if let Some(ref mmap) = self.mmap {
-                    let offset = disk_index * size_of::<ExactSearchResultItem>();
+                    let disk_count = disk_end - disk_start;
+                    let src_offset = disk_start * size_of::<ExactSearchResultItem>();
+                    
+                    // 预留空间
+                    results.reserve(disk_count);
+                    
                     unsafe {
-                        let ptr = mmap.as_ptr().add(offset) as *const ExactSearchResultItem;
-                        results.push(*ptr);
+                        let src = mmap.as_ptr().add(src_offset) as *const ExactSearchResultItem;
+                        let dst_start = results.len();
+                        results.set_len(dst_start + disk_count);
+                        std::ptr::copy_nonoverlapping(src, results.as_mut_ptr().add(dst_start), disk_count);
                     }
                 }
             }

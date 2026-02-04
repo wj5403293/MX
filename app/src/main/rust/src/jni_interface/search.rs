@@ -357,7 +357,11 @@ pub fn jni_get_results(mut env: JNIEnv, _class: JObject, start: jint, size: jint
                     if filter.enable_type_filter && filter.type_ids.is_empty().not() {
                         let typ = match item {
                             SearchResultItem::Exact(exact) => exact.typ,
-                            SearchResultItem::Fuzzy(fuzzy) => fuzzy.value_type,
+                            SearchResultItem::Fuzzy(fuzzy) => {
+                                // 先拷贝 packed 字段
+                                let vt = fuzzy.value_type;
+                                vt
+                            },
                         };
                         if !filter.type_ids.contains(&typ) {
                             return false;
@@ -411,8 +415,13 @@ pub fn jni_get_results(mut env: JNIEnv, _class: JObject, start: jint, size: jint
                     )?
                 },
                 SearchResultItem::Fuzzy(fuzzy) => {
-                    let buffer = fuzzy.value.as_ref();
-                    let current_value_str = format_value(&buffer, fuzzy.value_type);
+                    // 先拷贝 packed 字段
+                    let fuzzy_addr = fuzzy.address;
+                    let fuzzy_value = fuzzy.value;
+                    let fuzzy_vt = fuzzy.value_type;
+                    
+                    let buffer = fuzzy_value.as_ref();
+                    let current_value_str = format_value(&buffer, fuzzy_vt);
 
                     let current_value_jstring = env.new_string(&current_value_str)?;
 
@@ -427,9 +436,9 @@ pub fn jni_get_results(mut env: JNIEnv, _class: JObject, start: jint, size: jint
                         "(JJLjava/lang/String;I)V",
                         &[
                             JValue::Long(native_position as i64),
-                            JValue::Long(fuzzy.address as i64),
+                            JValue::Long(fuzzy_addr as i64),
                             JValue::Object(&current_value_jstring),
-                            JValue::Int(fuzzy.value_type.to_id()),
+                            JValue::Int(fuzzy_vt.to_id()),
                         ],
                     )?
                 },

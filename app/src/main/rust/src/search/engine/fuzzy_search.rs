@@ -1,16 +1,14 @@
 use super::super::result_manager::FuzzySearchResultItem;
 use super::super::types::{FuzzyCondition, ValueType};
-use super::manager::BPLUS_TREE_ORDER;
 use crate::core::DRIVER_MANAGER;
+use crate::search::engine::batch_reader::{cluster_addresses, parallel_batch_read};
+use crate::search::PAGE_SIZE;
 use crate::wuwa::PageStatusBitmap;
 use anyhow::{anyhow, Result};
-use bplustree::BPlusTreeSet;
-use log::{debug, log_enabled, warn, Level};
+use log::{debug, info, log_enabled, warn, Level};
 use rayon::prelude::*;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
-use crate::search::engine::batch_reader::{cluster_addresses, parallel_batch_read};
-use crate::search::PAGE_SIZE;
 
 /// 模糊搜索初始扫描
 /// 记录指定内存区域内所有地址的当前值
@@ -110,114 +108,6 @@ where
         let region_size = end - start;
         debug!(
             "Fuzzy initial scan: size={}MB, reads={} success + {} failed, found={}",
-            region_size / 1024 / 1024,
-            read_success,
-            read_failed,
-            results.len()
-        );
-    }
-
-    Ok(results)
-}
-
-/// 模糊搜索初始扫描 - 流式版本
-/// 直接返回 Vec 而不是 BPlusTreeSet，用于流式写入 result_manager
-/// 避免所有区域结果同时存在于内存中导致 OOM
-///
-/// # 参数
-/// * `value_type` - 要搜索的值类型
-/// * `start` - 区域起始地址
-/// * `end` - 区域结束地址
-/// * `chunk_size` - 每次读取的块大小
-/// * `check_cancelled` - 取消检查闭包（可选）
-///
-/// # 返回
-/// 返回所有成功读取的地址及其值（未排序，由调用方负责排序或直接存储）
-pub(crate) fn fuzzy_initial_scan_streaming<F>(
-    value_type: ValueType,
-    start: u64,
-    end: u64,
-    chunk_size: usize,
-    check_cancelled: Option<&F>,
-) -> Result<Vec<FuzzySearchResultItem>>
-where
-    F: Fn() -> bool,
-{
-    let driver_manager = DRIVER_MANAGER.read().map_err(|_| anyhow!("Failed to acquire DriverManager lock"))?;
-
-    let element_size = value_type.size();
-    let page_size = *PAGE_SIZE;
-
-    // 预估结果数量，避免频繁扩容
-    let region_size = end.saturating_sub(start) as usize;
-    let estimated_count = region_size / element_size;
-    // 限制预分配大小，避免预分配过大
-    let initial_capacity = estimated_count.min(1024 * 1024); // 最多预分配 1M 个元素
-    let mut results = Vec::with_capacity(initial_capacity);
-
-    let mut read_success = 0usize;
-    let mut read_failed = 0usize;
-
-    let mut current = start & !(*PAGE_SIZE as u64 - 1); // 页对齐
-    let mut chunk_buffer = vec![0u8; chunk_size];
-
-    while current < end {
-        // Check cancellation at each chunk
-        if let Some(check_fn) = check_cancelled {
-            if check_fn() {
-                if log_enabled!(Level::Debug) {
-                    debug!("Fuzzy initial scan (streaming) cancelled, returning {} results", results.len());
-                }
-                return Ok(results);
-            }
-        }
-
-        let chunk_end = (current + chunk_size as u64).min(end);
-        let chunk_len = (chunk_end - current) as usize;
-
-        let mut page_status = PageStatusBitmap::new(chunk_len, current as usize);
-
-        let read_result = driver_manager.read_memory_unified(current, &mut chunk_buffer[..chunk_len], Some(&mut page_status));
-
-        match read_result {
-            Ok(_) => {
-                let success_pages = page_status.success_count();
-                if success_pages > 0 {
-                    read_success += 1;
-
-                    // 使用 rayon 并行处理 buffer，收集到临时 Vec
-                    let chunk_results = scan_buffer_parallel(
-                        &chunk_buffer[..chunk_len],
-                        current,
-                        start,
-                        end,
-                        element_size,
-                        value_type,
-                        page_size,
-                        &page_status,
-                    );
-
-                    // 直接追加到结果 Vec
-                    results.extend(chunk_results);
-                } else {
-                    read_failed += 1;
-                }
-            },
-            Err(error) => {
-                if log_enabled!(Level::Debug) {
-                    warn!("Failed to read memory at 0x{:X} - 0x{:X}, err: {:?}", current, chunk_end, error);
-                }
-                read_failed += 1;
-            },
-        }
-
-        current = chunk_end;
-    }
-
-    if log_enabled!(Level::Debug) {
-        let region_size = end - start;
-        debug!(
-            "Fuzzy initial scan (streaming): size={}MB, reads={} success + {} failed, found={}",
             region_size / 1024 / 1024,
             read_success,
             read_failed,
@@ -328,7 +218,7 @@ fn scan_single_page(
 
 /// 模糊搜索细化
 /// 读取已有结果的当前值，并根据条件过滤
-/// 返回新的 BPlusTreeSet
+/// 直接返回 Vec，避免 BPlusTree 插入开销
 ///
 /// # 参数
 /// * `items` - 之前的搜索结果
@@ -339,7 +229,7 @@ fn scan_single_page(
 /// * `check_cancelled` - 取消检查闭包（可选）
 ///
 /// # 返回
-/// 返回满足条件的结果项（包含新值，有序）
+/// 返回满足条件的结果项（包含新值）
 pub(crate) fn fuzzy_refine_search<P, F>(
     items: &Vec<FuzzySearchResultItem>,
     condition: FuzzyCondition,
@@ -347,77 +237,69 @@ pub(crate) fn fuzzy_refine_search<P, F>(
     total_found_counter: Option<&Arc<AtomicUsize>>,
     update_progress: &P,
     check_cancelled: Option<&F>,
-) -> Result<BPlusTreeSet<FuzzySearchResultItem>>
+) -> Result<Vec<FuzzySearchResultItem>>
 where
     P: Fn(usize, usize) + Sync,
     F: Fn() -> bool + Sync,
 {
     if items.is_empty() {
-        return Ok(BPlusTreeSet::new(BPLUS_TREE_ORDER));
+        return Ok(Vec::new());
     }
 
     let total_items = items.len();
 
+    let cluster_start = std::time::Instant::now();
     let batches = cluster_addresses(items);
+    info!("[PERF] fuzzy_refine: cluster took {:?}, {} items -> {} batches (avg {:.1} items/batch)", 
+        cluster_start.elapsed(), items.len(), batches.len(), items.len() as f64 / batches.len() as f64);
 
-    if log_enabled!(Level::Debug) {
-        debug!(
-            "Fuzzy refine: {} items -> {} batches (avg {:.1} items/batch)",
-            items.len(),
-            batches.len(),
-            items.len() as f64 / batches.len() as f64
-        );
-    }
-
+    let batch_read_start = std::time::Instant::now();
     let items_with_current_value = parallel_batch_read(&batches, items, processed_counter, total_found_counter, update_progress, check_cancelled)?;
-
-    if log_enabled!(Level::Debug) {
-        debug!("Fuzzy refine: read {} / {} items successfully", items_with_current_value.len(), total_items);
-    }
+    info!("[PERF] fuzzy_refine: batch_read took {:?}, read {} / {} items", batch_read_start.elapsed(), items_with_current_value.len(), total_items);
 
     let cancelled = Arc::new(AtomicBool::new(false));
     let cancelled_clone = Arc::clone(&cancelled);
 
+    // 使用 ReadResultItem 直接进行条件匹配，避免创建临时对象
+    let filter_start = std::time::Instant::now();
     let matched: Vec<FuzzySearchResultItem> = items_with_current_value
-        .par_iter()
-        .take_any_while(|_| {
+        .par_chunks(8192)  // 分块处理，减少取消检查频率
+        .flat_map(|chunk| {
+            // 每个 chunk 开始时检查一次取消状态
             if cancelled_clone.load(Ordering::Relaxed) {
-                return false;
+                return Vec::new();
             }
             if let Some(check_fn) = check_cancelled {
                 if check_fn() {
                     cancelled_clone.store(true, Ordering::Relaxed);
-                    return false;
+                    return Vec::new();
                 }
             }
-            true
-        })
-        .filter_map(|(old_item, current_value)| {
-            if old_item.matches_condition(current_value, condition) {
-                if let Some(counter) = total_found_counter {
-                    counter.fetch_add(1, Ordering::Relaxed);
-                }
-                Some(FuzzySearchResultItem::from_bytes(old_item.address, current_value, old_item.value_type))
-            } else {
-                None
-            }
+            
+            // 批量处理 chunk 内的元素，直接在 ReadResultItem 上匹配
+            chunk
+                .iter()
+                .filter_map(|read_item| {
+                    if read_item.matches_condition(condition) {
+                        Some(read_item.to_fuzzy_item())
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>()
         })
         .collect();
-
-    let mut results = BPlusTreeSet::new(BPLUS_TREE_ORDER);
-    for item in matched {
-        results.insert(item);
-    }
+    info!("[PERF] fuzzy_refine: filter took {:?}, matched {} / {}", filter_start.elapsed(), matched.len(), items_with_current_value.len());
 
     if log_enabled!(Level::Debug) {
-        debug!("Fuzzy refine: checked {} items, found {} matches", items.len(), results.len());
+        debug!("Fuzzy refine: checked {} items, found {} matches", items.len(), matched.len());
     }
 
-    // 最终更新进度到 100%
+    // 最终更新进度
     if let Some(counter) = total_found_counter {
-        counter.store(results.len(), Ordering::Relaxed);
+        counter.store(matched.len(), Ordering::Relaxed);
     }
-    update_progress(total_items, results.len());
+    update_progress(total_items, matched.len());
 
-    Ok(results)
+    Ok(matched)
 }

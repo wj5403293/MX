@@ -803,8 +803,8 @@ impl SearchEngineManager {
                     false
                 };
 
-                // 扫描单个区域，返回 Vec 而不是 BPlusTreeSet
-                let region_results = match fuzzy_search::fuzzy_initial_scan_streaming(
+                // 扫描单个区域，返回 Vec
+                let region_results = match fuzzy_search::fuzzy_initial_scan(
                     value_type,
                     *start,
                     *end,
@@ -966,13 +966,13 @@ impl SearchEngineManager {
         let refine_result = tokio::task::spawn_blocking(move || {
             // Check cancellation.
             if cancel_token_clone.is_cancelled() || cancelled_clone.load(AtomicOrdering::Relaxed) {
-                return BPlusTreeSet::new(BPLUS_TREE_ORDER);
+                return Vec::new();
             }
 
             if let Ok(manager) = SEARCH_ENGINE_MANAGER.read() {
                 if manager.shared_buffer.is_cancel_requested() {
                     cancelled_clone.store(true, AtomicOrdering::Relaxed);
-                    return BPlusTreeSet::new(BPLUS_TREE_ORDER);
+                    return Vec::new();
                 }
             }
 
@@ -1009,7 +1009,7 @@ impl SearchEngineManager {
             )
             .unwrap_or_else(|e| {
                 error!("Fuzzy refine failed: {:?}", e);
-                BPlusTreeSet::new(BPLUS_TREE_ORDER)
+                Vec::new()
             })
         })
         .await;
@@ -1024,17 +1024,23 @@ impl SearchEngineManager {
 
         // Process results.
         let success = match refine_result {
-            Ok(refined_tree) => {
+            Ok(refined_vec) => {
+                let result_count = refined_vec.len();
+                info!("[PERF] fuzzy_refine: got {} results, acquiring write lock...", result_count);
+                let lock_start = Instant::now();
+                
                 match SEARCH_ENGINE_MANAGER.write() {
                     Ok(mut manager) => {
+                        info!("[PERF] fuzzy_refine: write lock acquired in {:?}", lock_start.elapsed());
+                        
                         if let Some(ref mut result_mgr) = manager.result_manager {
-                            // Convert tree to vec and replace all results.
-                            let refined_vec: Vec<_> = refined_tree.iter().cloned().collect();
-
+                            let replace_start = Instant::now();
                             if let Err(e) = result_mgr.replace_all_fuzzy_results(refined_vec) {
                                 error!("Failed to replace fuzzy results: {:?}", e);
                                 false
                             } else {
+                                info!("[PERF] fuzzy_refine: replace_all took {:?}", replace_start.elapsed());
+                                
                                 let elapsed = start_time.elapsed().as_millis() as u64;
                                 let final_count = result_mgr.total_count();
 
