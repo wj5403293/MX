@@ -21,6 +21,8 @@
         <item name="colorOnPrimary">@android:color/white</item>
         <item name="colorSurface">@color/floating_surface</item>
         <item name="colorOnSurface">@color/floating_text_primary</item>
+        <!-- 文本选中高亮颜色 -->
+        <item name="android:textColorHighlight">@color/floating_text_highlight</item>
     </style>
 
     <style name="KeyboardButton">

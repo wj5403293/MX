@@ -10,5 +10,7 @@
         <item name="colorSurface">@color/floating_surface</item>
         <item name="colorOnSurface">@color/floating_text_primary</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
+        <!-- 文本选中高亮颜色 -->
+        <item name="android:textColorHighlight">@color/floating_text_highlight</item>
     </style>
 </resources>

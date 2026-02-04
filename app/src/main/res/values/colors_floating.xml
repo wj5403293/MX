@@ -49,4 +49,7 @@
     <color name="floating_selected">#2196F3</color>          <!-- 选中状态覆盖 -->
     <color name="floating_pressed">#1AFFFFFF</color>         <!-- 按下状态覆盖（10%白） -->
     <color name="floating_hover">#0DFFFFFF</color>           <!-- 悬停状态覆盖（5%白） -->
+
+    <!-- 文本选中高亮 -->
+    <color name="floating_text_highlight">#6664B5F6</color>  <!-- 选中文本高亮（40%浅蓝） -->
 </resources>
