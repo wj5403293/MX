@@ -745,13 +745,16 @@ impl SearchEngineManager {
     }
 
     /// Internal async fuzzy initial scan task.
+    /// 
+    /// 使用流式写入策略：每个区域扫描完成后立即将结果写入 result_manager，
+    /// 避免所有结果同时存在于内存中导致 OOM。
     async fn run_fuzzy_initial_task(value_type: ValueType, regions: Vec<(u64, u64)>, chunk_size: usize, cancel_token: CancellationToken) {
         let start_time = Instant::now();
         let total_regions = regions.len();
 
         if log_enabled!(Level::Debug) {
             debug!(
-                "Starting fuzzy initial scan: value_type={:?}, regions={}, chunk_size={} KB",
+                "Starting fuzzy initial scan (streaming): value_type={:?}, regions={}, chunk_size={} KB",
                 value_type,
                 regions.len(),
                 chunk_size / 1024
@@ -767,69 +770,84 @@ impl SearchEngineManager {
         let cancelled_clone = Arc::clone(&cancelled);
         let cancel_token_clone = cancel_token.clone();
 
-        // Run fuzzy scan in blocking task with rayon.
+        // 流式处理：顺序扫描每个区域，扫描完成后立即写入 result_manager
+        // 这样可以利用 result_manager 的内存+磁盘混合存储，避免 OOM
         let scan_result = tokio::task::spawn_blocking(move || {
-            let all_results: Vec<BPlusTreeSet<FuzzySearchResultItem>> = regions
-                .par_iter()
-                .enumerate()
-                .filter_map(|(idx, (start, end))| {
-                    // Check cancellation.
-                    if cancel_token_clone.is_cancelled() || cancelled_clone.load(AtomicOrdering::Relaxed) {
-                        cancelled_clone.store(true, AtomicOrdering::Relaxed);
-                        return None;
-                    }
+            for (idx, (start, end)) in regions.iter().enumerate() {
+                // Check cancellation
+                if cancel_token_clone.is_cancelled() || cancelled_clone.load(AtomicOrdering::Relaxed) {
+                    cancelled_clone.store(true, AtomicOrdering::Relaxed);
+                    break;
+                }
 
+                if let Ok(manager) = SEARCH_ENGINE_MANAGER.read() {
+                    if manager.shared_buffer.is_cancel_requested() {
+                        cancelled_clone.store(true, AtomicOrdering::Relaxed);
+                        break;
+                    }
+                }
+
+                // Create check_cancelled closure for this region
+                let cancelled_ref = &cancelled_clone;
+                let token_ref = &cancel_token_clone;
+                let check_cancelled_for_region = || -> bool {
+                    if token_ref.is_cancelled() || cancelled_ref.load(AtomicOrdering::Relaxed) {
+                        return true;
+                    }
                     if let Ok(manager) = SEARCH_ENGINE_MANAGER.read() {
                         if manager.shared_buffer.is_cancel_requested() {
-                            cancelled_clone.store(true, AtomicOrdering::Relaxed);
-                            return None;
-                        }
-                    }
-
-                    // Create check_cancelled closure for this region
-                    let check_cancelled_for_region = || -> bool {
-                        if cancel_token_clone.is_cancelled() || cancelled_clone.load(AtomicOrdering::Relaxed) {
+                            cancelled_ref.store(true, AtomicOrdering::Relaxed);
                             return true;
                         }
-                        if let Ok(manager) = SEARCH_ENGINE_MANAGER.read() {
-                            if manager.shared_buffer.is_cancel_requested() {
-                                cancelled_clone.store(true, AtomicOrdering::Relaxed);
-                                return true;
+                    }
+                    false
+                };
+
+                // 扫描单个区域，返回 Vec 而不是 BPlusTreeSet
+                let region_results = match fuzzy_search::fuzzy_initial_scan_streaming(
+                    value_type,
+                    *start,
+                    *end,
+                    chunk_size,
+                    Some(&check_cancelled_for_region),
+                ) {
+                    Ok(results) => results,
+                    Err(e) => {
+                        error!("Failed to fuzzy scan region {}: {:?}", idx, e);
+                        Vec::new()
+                    },
+                };
+
+                let found_in_region = region_results.len();
+
+                // 立即将结果写入 result_manager（支持磁盘溢出）
+                if !region_results.is_empty() {
+                    if let Ok(mut manager) = SEARCH_ENGINE_MANAGER.write() {
+                        if let Some(ref mut result_mgr) = manager.result_manager {
+                            if let Err(e) = result_mgr.add_fuzzy_results_batch(region_results) {
+                                error!("Failed to add fuzzy results for region {}: {:?}", idx, e);
                             }
                         }
-                        false
-                    };
-
-                    let result = fuzzy_search::fuzzy_initial_scan(value_type, *start, *end, chunk_size, None, None, Some(&check_cancelled_for_region));
-
-                    let region_results = match result {
-                        Ok(results) => results,
-                        Err(e) => {
-                            error!("Failed to fuzzy scan region {}: {:?}", idx, e);
-                            BPlusTreeSet::new(BPLUS_TREE_ORDER)
-                        },
-                    };
-
-                    // Update progress.
-                    let completed = completed_regions_clone.fetch_add(1, AtomicOrdering::Relaxed) + 1;
-                    let found_in_region = region_results.len() as i64;
-                    let total_found = total_found_clone.fetch_add(found_in_region, AtomicOrdering::Relaxed) + found_in_region;
-
-                    if let Ok(manager) = SEARCH_ENGINE_MANAGER.read() {
-                        let progress = ((completed as f64 / total_regions as f64) * 100.0) as i32;
-                        manager.shared_buffer.update_progress(progress, completed as i32, total_found);
-                        manager.shared_buffer.tick_heartbeat();
                     }
+                }
+                // region_results 在这里被 drop，释放内存
 
-                    Some(region_results)
-                })
-                .collect();
+                // Update progress
+                let completed = completed_regions_clone.fetch_add(1, AtomicOrdering::Relaxed) + 1;
+                let total_found = total_found_clone.fetch_add(found_in_region as i64, AtomicOrdering::Relaxed) + found_in_region as i64;
 
-            all_results
+                if let Ok(manager) = SEARCH_ENGINE_MANAGER.read() {
+                    let progress = ((completed as f64 / total_regions as f64) * 100.0) as i32;
+                    manager.shared_buffer.update_progress(progress, completed as i32, total_found);
+                    manager.shared_buffer.tick_heartbeat();
+                }
+            }
+
+            !cancelled_clone.load(AtomicOrdering::Relaxed)
         })
         .await;
 
-        // Check if cancelled.
+        // Check if cancelled
         if cancel_token.is_cancelled() || cancelled.load(AtomicOrdering::Relaxed) {
             if let Ok(manager) = SEARCH_ENGINE_MANAGER.read() {
                 manager.shared_buffer.write_status(SearchStatus::Cancelled);
@@ -838,41 +856,35 @@ impl SearchEngineManager {
             return;
         }
 
-        // Process results.
+        // Finalize
         let success = match scan_result {
-            Ok(all_results) => {
-                match SEARCH_ENGINE_MANAGER.write() {
-                    Ok(mut manager) => {
-                        if let Some(ref mut result_mgr) = manager.result_manager {
-                            for region_results in all_results {
-                                if !region_results.is_empty() {
-                                    // Convert BPlusTreeSet to Vec for storage
-                                    let items: Vec<_> = region_results.iter().cloned().collect();
-                                    if let Err(e) = result_mgr.add_fuzzy_results_batch(items) {
-                                        error!("Failed to add fuzzy results: {:?}", e);
-                                    }
-                                }
+            Ok(completed_successfully) => {
+                if completed_successfully {
+                    match SEARCH_ENGINE_MANAGER.write() {
+                        Ok(mut manager) => {
+                            if let Some(ref mut result_mgr) = manager.result_manager {
+                                let elapsed = start_time.elapsed().as_millis() as u64;
+                                let final_count = result_mgr.total_count();
+
+                                info!("Fuzzy initial scan completed: {} results in {} ms", final_count, elapsed);
+
+                                manager.shared_buffer.write_found_count(final_count as i64);
+                                manager.shared_buffer.write_progress(100);
+                                manager.shared_buffer.write_regions_done(total_regions as i32);
+
+                                true
+                            } else {
+                                error!("result_manager is None when finalizing fuzzy results");
+                                false
                             }
-
-                            let elapsed = start_time.elapsed().as_millis() as u64;
-                            let final_count = result_mgr.total_count();
-
-                            info!("Fuzzy initial scan completed: {} results in {} ms", final_count, elapsed);
-
-                            manager.shared_buffer.write_found_count(final_count as i64);
-                            manager.shared_buffer.write_progress(100);
-                            manager.shared_buffer.write_regions_done(total_regions as i32);
-
-                            true
-                        } else {
-                            error!("result_manager is None when processing fuzzy results");
+                        },
+                        Err(e) => {
+                            error!("Failed to acquire write lock for fuzzy finalization: {:?}", e);
                             false
-                        }
-                    },
-                    Err(e) => {
-                        error!("Failed to acquire write lock for fuzzy results: {:?}", e);
-                        false
-                    },
+                        },
+                    }
+                } else {
+                    false
                 }
             },
             Err(e) => {

@@ -499,7 +499,7 @@ class SavedAddressController(
     @SuppressLint("SetTextI18n")
     fun updateProcessDisplay(process: DisplayProcessInfo?) {
         process?.let {
-            val memoryB = (it.rss * 4096)
+            val memoryB = (it.rss * 1024)
             binding.processInfoText.text =
                 "[${it.pid}] ${it.name} [${formatBytes(memoryB, 0)}]"
             binding.processStatusIcon.setIconResource(R.drawable.icon_pause_24px)

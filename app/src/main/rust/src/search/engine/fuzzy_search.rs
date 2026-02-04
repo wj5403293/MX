@@ -1,6 +1,6 @@
 use super::super::result_manager::FuzzySearchResultItem;
 use super::super::types::{FuzzyCondition, ValueType};
-use super::manager::{BPLUS_TREE_ORDER};
+use super::manager::BPLUS_TREE_ORDER;
 use crate::core::DRIVER_MANAGER;
 use crate::wuwa::PageStatusBitmap;
 use anyhow::{anyhow, Result};
@@ -14,28 +14,24 @@ use crate::search::PAGE_SIZE;
 
 /// 模糊搜索初始扫描
 /// 记录指定内存区域内所有地址的当前值
-/// 使用 BPlusTreeSet 存储结果，保持有序且支持高效删除
+/// 直接返回 Vec，用于流式写入 result_manager，避免 OOM
 ///
 /// # 参数
 /// * `value_type` - 要搜索的值类型
 /// * `start` - 区域起始地址
 /// * `end` - 区域结束地址
 /// * `chunk_size` - 每次读取的块大小
-/// * `processed_counter` - 已处理计数器（可选）
-/// * `total_found_counter` - 找到总数计数器（可选）
 /// * `check_cancelled` - 取消检查闭包（可选）
 ///
 /// # 返回
-/// 返回所有成功读取的地址及其值（有序）
+/// 返回所有成功读取的地址及其值
 pub(crate) fn fuzzy_initial_scan<F>(
     value_type: ValueType,
     start: u64,
     end: u64,
     chunk_size: usize,
-    processed_counter: Option<&Arc<AtomicUsize>>,
-    total_found_counter: Option<&Arc<AtomicUsize>>,
     check_cancelled: Option<&F>,
-) -> Result<BPlusTreeSet<FuzzySearchResultItem>>
+) -> Result<Vec<FuzzySearchResultItem>>
 where
     F: Fn() -> bool,
 {
@@ -44,7 +40,12 @@ where
     let element_size = value_type.size();
     let page_size = *PAGE_SIZE;
 
-    let mut results = BPlusTreeSet::new(BPLUS_TREE_ORDER);
+    // 预估结果数量，避免频繁扩容
+    let region_size = end.saturating_sub(start) as usize;
+    let estimated_count = region_size / element_size;
+    // 限制预分配大小，避免预分配过大
+    let initial_capacity = estimated_count.min(1024 * 1024); // 最多预分配 1M 个元素
+    let mut results = Vec::with_capacity(initial_capacity);
 
     let mut read_success = 0usize;
     let mut read_failed = 0usize;
@@ -88,10 +89,8 @@ where
                         &page_status,
                     );
 
-                    // 批量插入到 BPlusTreeSet
-                    for item in chunk_results {
-                        results.insert(item);
-                    }
+                    // 直接追加到结果 Vec
+                    results.extend(chunk_results);
                 } else {
                     read_failed += 1;
                 }
@@ -102,11 +101,6 @@ where
                 }
                 read_failed += 1;
             },
-        }
-
-        // 更新计数器
-        if let Some(counter) = processed_counter {
-            counter.fetch_add(chunk_len, Ordering::Relaxed);
         }
 
         current = chunk_end;
@@ -123,9 +117,112 @@ where
         );
     }
 
-    // 更新总找到数
-    if let Some(counter) = total_found_counter {
-        counter.store(results.len(), Ordering::Relaxed);
+    Ok(results)
+}
+
+/// 模糊搜索初始扫描 - 流式版本
+/// 直接返回 Vec 而不是 BPlusTreeSet，用于流式写入 result_manager
+/// 避免所有区域结果同时存在于内存中导致 OOM
+///
+/// # 参数
+/// * `value_type` - 要搜索的值类型
+/// * `start` - 区域起始地址
+/// * `end` - 区域结束地址
+/// * `chunk_size` - 每次读取的块大小
+/// * `check_cancelled` - 取消检查闭包（可选）
+///
+/// # 返回
+/// 返回所有成功读取的地址及其值（未排序，由调用方负责排序或直接存储）
+pub(crate) fn fuzzy_initial_scan_streaming<F>(
+    value_type: ValueType,
+    start: u64,
+    end: u64,
+    chunk_size: usize,
+    check_cancelled: Option<&F>,
+) -> Result<Vec<FuzzySearchResultItem>>
+where
+    F: Fn() -> bool,
+{
+    let driver_manager = DRIVER_MANAGER.read().map_err(|_| anyhow!("Failed to acquire DriverManager lock"))?;
+
+    let element_size = value_type.size();
+    let page_size = *PAGE_SIZE;
+
+    // 预估结果数量，避免频繁扩容
+    let region_size = end.saturating_sub(start) as usize;
+    let estimated_count = region_size / element_size;
+    // 限制预分配大小，避免预分配过大
+    let initial_capacity = estimated_count.min(1024 * 1024); // 最多预分配 1M 个元素
+    let mut results = Vec::with_capacity(initial_capacity);
+
+    let mut read_success = 0usize;
+    let mut read_failed = 0usize;
+
+    let mut current = start & !(*PAGE_SIZE as u64 - 1); // 页对齐
+    let mut chunk_buffer = vec![0u8; chunk_size];
+
+    while current < end {
+        // Check cancellation at each chunk
+        if let Some(check_fn) = check_cancelled {
+            if check_fn() {
+                if log_enabled!(Level::Debug) {
+                    debug!("Fuzzy initial scan (streaming) cancelled, returning {} results", results.len());
+                }
+                return Ok(results);
+            }
+        }
+
+        let chunk_end = (current + chunk_size as u64).min(end);
+        let chunk_len = (chunk_end - current) as usize;
+
+        let mut page_status = PageStatusBitmap::new(chunk_len, current as usize);
+
+        let read_result = driver_manager.read_memory_unified(current, &mut chunk_buffer[..chunk_len], Some(&mut page_status));
+
+        match read_result {
+            Ok(_) => {
+                let success_pages = page_status.success_count();
+                if success_pages > 0 {
+                    read_success += 1;
+
+                    // 使用 rayon 并行处理 buffer，收集到临时 Vec
+                    let chunk_results = scan_buffer_parallel(
+                        &chunk_buffer[..chunk_len],
+                        current,
+                        start,
+                        end,
+                        element_size,
+                        value_type,
+                        page_size,
+                        &page_status,
+                    );
+
+                    // 直接追加到结果 Vec
+                    results.extend(chunk_results);
+                } else {
+                    read_failed += 1;
+                }
+            },
+            Err(error) => {
+                if log_enabled!(Level::Debug) {
+                    warn!("Failed to read memory at 0x{:X} - 0x{:X}, err: {:?}", current, chunk_end, error);
+                }
+                read_failed += 1;
+            },
+        }
+
+        current = chunk_end;
+    }
+
+    if log_enabled!(Level::Debug) {
+        let region_size = end - start;
+        debug!(
+            "Fuzzy initial scan (streaming): size={}MB, reads={} success + {} failed, found={}",
+            region_size / 1024 / 1024,
+            read_success,
+            read_failed,
+            results.len()
+        );
     }
 
     Ok(results)
