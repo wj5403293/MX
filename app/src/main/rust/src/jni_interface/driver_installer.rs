@@ -19,31 +19,31 @@ lazy_static! {
     static ref DRIVER_LIST: Vec<(String, String)> = vec![
         (
             ss!("android12-5.10"),
-            ss!("https://vip.123pan.cn/1818969283/ymjew503t0l000d7w32xmw1jz1hmciinDIYPBdrzBIi1DvxPAIazAY==.png")
+            ss!("https://vip.123pan.cn/1818969283/ymjew503t0m000daeh3ifpj0kv9i5flgDIYPBdrzBIi1DvxPAIazAY==.png")
         ),
         (
             ss!("android13-5.10"),
-            ss!("https://vip.123pan.cn/1818969283/ymjew503t0n000d7w32yi31ktdcv3llyDIYPBdrzBIi1DvxPAIazAY==.png")
+            ss!("https://vip.123pan.cn/1818969283/yk6baz03t0l000daf28h9cg0oce4sal3DIYPBdrzBIi1DvxPAIazAY==.png")
         ),
         (
             ss!("android13-5.15"),
-            ss!("https://vip.123pan.cn/1818969283/ymjew503t0n000d7w32yj6ne6y2jq5ajDIYPBdrzBIi1DvxPAIazAY==.png")
+            ss!("https://vip.123pan.cn/1818969283/yk6baz03t0n000daf28gssqet5e4rlb4DIYPBdrzBIi1DvxPAIazAY==.png")
         ),
         (
             ss!("android14-5.15"),
-            ss!("https://vip.123pan.cn/1818969283/yk6baz03t0l000d7w33g1mjccon2owarDIYPBdrzBIi1DvxPAIazAY==.png")
+            ss!("https://vip.123pan.cn/1818969283/yk6baz03t0m000daf28gc8uabue4q3trDIYPBdrzBIi1DvxPAIazAY==.png")
         ),
         (
             ss!("android14-6.1"),
-            ss!("https://vip.123pan.cn/1818969283/ymjew503t0m000d7w32y2f4o7g18l20eDIYPBdrzBIi1DvxPAIazAY==.png")
+            ss!("https://vip.123pan.cn/1818969283/yk6baz03t0n000daf28eym3018e4o3qzDIYPBdrzBIi1DvxPAIazAY==.png")
         ),
         (
             ss!("android15-6.6"),
-            ss!("https://vip.123pan.cn/1818969283/ymjew503t0n000d7w32yi6kyrrilfmbrDIYPBdrzBIi1DvxPAIazAY==.png")
+            ss!("https://vip.123pan.cn/1818969283/ymjew503t0m000daeh3fof36fh9hz2bhDIYPBdrzBIi1DvxPAIazAY==.png")
         ),
         (
             ss!("android16-6.12"),
-            ss!("https://vip.123pan.cn/1818969283/yk6baz03t0m000d7w33gvm7laq4fr9zsDIYPBdrzBIi1DvxPAIazAY==.png")
+            ss!("https://vip.123pan.cn/1818969283/ymjew503t0l000daeh3f7vgjzd9hypigDIYPBdrzBIi1DvxPAIazAY==.png")
         ),
     ];
 }
