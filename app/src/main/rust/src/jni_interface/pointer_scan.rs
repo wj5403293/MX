@@ -7,7 +7,7 @@ use crate::pointer_scan::scanner::ScanRegion;
 use crate::pointer_scan::shared_buffer::SHARED_BUFFER_SIZE;
 use crate::pointer_scan::types::{ScanPhase, VmStaticData};
 use anyhow::anyhow;
-use jni::objects::{JLongArray, JObject, JObjectArray, JString};
+use jni::objects::{JIntArray, JLongArray, JObject, JObjectArray, JString};
 use jni::sys::{jboolean, jint, jlong, jobjectArray, JNI_FALSE, JNI_TRUE};
 use jni::JNIEnv;
 use jni_macro::jni_method;
