@@ -57,11 +57,11 @@ jobs:
 
     - name: Setup Android NDK
       id: setup-ndk
-      uses: nttld/setup-ndk@v1
+      uses: nttld/setup-ndk@main
       with:
         ndk-version: r26d
         add-to-path: true
-        local-cache: true
+        link-to-sdk: true
 
     - name: Set NDK environment variables
       run: |
