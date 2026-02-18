@@ -3,7 +3,15 @@ package moe.fuqiuluo.mamu.ui.screen
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.res.Configuration
 import android.widget.Toast
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.*
@@ -20,12 +29,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import moe.fuqiuluo.mamu.data.model.DriverInfo
 import moe.fuqiuluo.mamu.ui.theme.AdaptiveLayoutInfo
 import moe.fuqiuluo.mamu.ui.theme.Dimens
+import moe.fuqiuluo.mamu.ui.theme.MXTheme
 import moe.fuqiuluo.mamu.ui.theme.rememberAdaptiveLayoutInfo
 import moe.fuqiuluo.mamu.ui.viewmodel.DriverInstallViewModel
 import moe.fuqiuluo.mamu.utils.RootConfigManager
@@ -125,7 +138,11 @@ fun DriverInstallScreen(
                                             }
                                         }
 
-                                        if (uiState.selectedDriver != null) {
+                                        AnimatedVisibility(
+                                            visible = uiState.selectedDriver != null,
+                                            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                                            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+                                        ) {
                                             Surface(
                                                 modifier = Modifier.fillMaxWidth(),
                                                 tonalElevation = Dimens.elevationMd(adaptiveLayout)
@@ -162,12 +179,12 @@ fun DriverInstallScreen(
                                     }
                                 }
                                 else -> {
-                                    // 横屏布局：Row（列表左侧 + 操作面板右侧）
+                                    // 横屏布局：Master-Detail（列表左侧45% + 详情右侧55%）
                                     Row(modifier = Modifier.fillMaxSize()) {
-                                        // 左侧：驱动列表（80%）
+                                        // 左侧：驱动列表
                                         LazyColumn(
                                             modifier = Modifier
-                                                .weight(0.8f)
+                                                .weight(0.45f)
                                                 .fillMaxHeight(),
                                             contentPadding = PaddingValues(Dimens.paddingLg(adaptiveLayout)),
                                             verticalArrangement = Arrangement.spacedBy(Dimens.spacingMd(adaptiveLayout))
@@ -182,62 +199,18 @@ fun DriverInstallScreen(
                                             }
                                         }
 
-                                        // 右侧：操作面板（20%）
-                                        if (uiState.selectedDriver != null) {
-                                            VerticalDivider()
+                                        VerticalDivider()
 
-                                            Surface(
-                                                modifier = Modifier
-                                                    .weight(0.2f)
-                                                    .fillMaxHeight(),
-                                                tonalElevation = Dimens.elevationMd(adaptiveLayout)
-                                            ) {
-                                                Column(
-                                                    modifier = Modifier
-                                                        .fillMaxSize()
-                                                        .padding(Dimens.paddingLg(adaptiveLayout)),
-                                                    verticalArrangement = Arrangement.spacedBy(Dimens.spacingSm(adaptiveLayout)),
-                                                    horizontalAlignment = Alignment.CenterHorizontally
-                                                ) {
-                                                    // 显示选中驱动的名称
-                                                    Text(
-                                                        text = uiState.selectedDriver!!.displayName,
-                                                        style = MaterialTheme.typography.titleSmall,
-                                                        fontWeight = FontWeight.Bold
-                                                    )
-
-                                                    Spacer(modifier = Modifier.weight(1f))
-
-                                                    if (uiState.isInstalling) {
-                                                        CircularProgressIndicator(
-                                                            modifier = Modifier.size(Dimens.iconXl(adaptiveLayout))
-                                                        )
-                                                        Spacer(modifier = Modifier.height(Dimens.spacingSm(adaptiveLayout)))
-                                                        Text(
-                                                            text = "正在下载并安装...",
-                                                            style = MaterialTheme.typography.bodySmall
-                                                        )
-                                                    } else {
-                                                        Button(
-                                                            onClick = { showConfirmDialog = true },
-                                                            modifier = Modifier.fillMaxWidth()
-                                                        ) {
-                                                            Column(
-                                                                horizontalAlignment = Alignment.CenterHorizontally,
-                                                                verticalArrangement = Arrangement.spacedBy(Dimens.spacingXs(adaptiveLayout))
-                                                            ) {
-                                                                Icon(
-                                                                    Icons.Default.Download,
-                                                                    contentDescription = null,
-                                                                    modifier = Modifier.size(Dimens.iconMd(adaptiveLayout))
-                                                                )
-                                                                Text("安装")
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
+                                        // 右侧：详情面板（始终显示）
+                                        DriverDetailPanel(
+                                            adaptiveLayout = adaptiveLayout,
+                                            selectedDriver = uiState.selectedDriver,
+                                            isInstalling = uiState.isInstalling,
+                                            onInstallClick = { showConfirmDialog = true },
+                                            modifier = Modifier
+                                                .weight(0.55f)
+                                                .fillMaxHeight()
+                                        )
                                     }
                                 }
                             }
@@ -472,6 +445,220 @@ fun ErrorLogDialog(
         }
     )
 }
+
+@Composable
+private fun DriverDetailPanel(
+    adaptiveLayout: AdaptiveLayoutInfo,
+    selectedDriver: DriverInfo?,
+    isInstalling: Boolean,
+    onInstallClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        tonalElevation = Dimens.elevationSm(adaptiveLayout)
+    ) {
+        AnimatedContent(
+            targetState = selectedDriver,
+            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            contentKey = { it != null },
+            label = "detail_panel"
+        ) { driver ->
+            if (driver == null) {
+                // 未选中状态：居中提示
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.TouchApp,
+                            contentDescription = null,
+                            modifier = Modifier.size(Dimens.iconXl(adaptiveLayout)),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                        Spacer(modifier = Modifier.height(Dimens.spacingMd(adaptiveLayout)))
+                        Text(
+                            text = "选择一个驱动查看详情",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            } else {
+                // 已选中状态：驱动信息 + 安装操作
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(Dimens.paddingLg(adaptiveLayout))
+                ) {
+                    // 驱动信息卡片
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(Dimens.paddingLg(adaptiveLayout)),
+                            verticalArrangement = Arrangement.spacedBy(Dimens.spacingSm(adaptiveLayout))
+                        ) {
+                            Text(
+                                text = driver.displayName,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = driver.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (driver.installed) {
+                                AssistChip(
+                                    onClick = { },
+                                    label = { Text("已安装") },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(Dimens.iconSm(adaptiveLayout))
+                                        )
+                                    },
+                                    colors = AssistChipDefaults.assistChipColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                                    )
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    // 底部安装按钮/进度
+                    if (isInstalling) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(Dimens.spacingSm(adaptiveLayout))
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(Dimens.iconXl(adaptiveLayout))
+                            )
+                            Text(
+                                text = "正在下载并安装...",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        }
+                    } else {
+                        Button(
+                            onClick = onInstallClick,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                Icons.Default.Download,
+                                contentDescription = null,
+                                modifier = Modifier.size(Dimens.iconSm(adaptiveLayout))
+                            )
+                            Spacer(modifier = Modifier.width(Dimens.spacingSm(adaptiveLayout)))
+                            Text("下载并安装")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
+@Preview(name = "Light Mode", showBackground = true, widthDp = 360, heightDp = 640)
+@Preview(name = "Dark Mode", showBackground = true, widthDp = 360, heightDp = 640, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun DriverInstallScreenCompactPreview() {
+    MXTheme {
+        val windowSizeClass = WindowSizeClass.calculateFromSize(DpSize(360.dp, 640.dp))
+        val adaptiveLayout = rememberAdaptiveLayoutInfo(windowSizeClass)
+        Scaffold { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                LazyColumn(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(sampleDrivers) { driver ->
+                        DriverCard(
+                            adaptiveLayout = adaptiveLayout,
+                            driver = driver,
+                            isSelected = driver.name == "driver_a14",
+                            onSelect = { }
+                        )
+                    }
+                }
+                Surface(tonalElevation = 2.dp) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Button(onClick = { }, modifier = Modifier.fillMaxWidth()) {
+                            Icon(Icons.Default.Download, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("下载并安装")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
+@Preview(name = "Tablet Light", showBackground = true, widthDp = 900, heightDp = 600)
+@Preview(name = "Tablet Dark", showBackground = true, widthDp = 900, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun DriverInstallScreenTabletPreview() {
+    MXTheme {
+        val windowSizeClass = WindowSizeClass.calculateFromSize(DpSize(900.dp, 600.dp))
+        val adaptiveLayout = rememberAdaptiveLayoutInfo(windowSizeClass)
+        Scaffold { paddingValues ->
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                LazyColumn(
+                    modifier = Modifier.weight(0.45f).fillMaxHeight(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(sampleDrivers) { driver ->
+                        DriverCard(
+                            adaptiveLayout = adaptiveLayout,
+                            driver = driver,
+                            isSelected = driver.name == "driver_a14",
+                            onSelect = { }
+                        )
+                    }
+                }
+                VerticalDivider()
+                DriverDetailPanel(
+                    adaptiveLayout = adaptiveLayout,
+                    selectedDriver = sampleDrivers[1],
+                    isInstalling = false,
+                    onInstallClick = { },
+                    modifier = Modifier.weight(0.55f).fillMaxHeight()
+                )
+            }
+        }
+    }
+}
+
+private val sampleDrivers = listOf(
+    DriverInfo(name = "driver_a13", displayName = "Android 13 (5.10)", installed = true),
+    DriverInfo(name = "driver_a14", displayName = "Android 14 (5.15)", installed = false),
+    DriverInfo(name = "driver_a15", displayName = "Android 15 (6.1)", installed = false),
+)
 
 private fun restartApp(context: Context) {
     val pkg = context.packageName
