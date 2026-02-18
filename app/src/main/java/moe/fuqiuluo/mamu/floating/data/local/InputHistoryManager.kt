@@ -24,6 +24,7 @@ object InputHistoryManager {
         const val FUZZY_SEARCH_VALUE = "fuzzy_search_value"
         const val EXPORT_FILENAME = "export_filename"
         const val IMPORT_FILENAME = "import_filename"
+        const val OFFSET_CALCULATOR_HEX_MODE = "offset_calculator_hex_mode"
     }
     
     /**
