@@ -252,7 +252,7 @@ class SearchDialog(
 
         val useBuiltinKeyboard = mmkv.keyboardType == 0
         if (useBuiltinKeyboard) {
-            binding.inputValue.showSoftInputOnFocus = false
+            suppressSystemKeyboard(binding.inputValue)
             binding.builtinKeyboard.visibility = View.VISIBLE
             binding.divider.visibility = View.VISIBLE
         } else {

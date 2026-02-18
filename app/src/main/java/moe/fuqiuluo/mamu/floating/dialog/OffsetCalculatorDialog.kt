@@ -96,8 +96,6 @@ class OffsetCalculatorDialog(
         // 根据配置决定是否禁用系统输入法
         val useBuiltinKeyboard = mmkv.keyboardType == 0
         if (useBuiltinKeyboard) {
-            binding.inputBaseAddress.showSoftInputOnFocus = false
-            binding.inputExpression.showSoftInputOnFocus = false
             binding.builtinKeyboard.visibility = View.VISIBLE
             binding.divider.visibility = View.VISIBLE
         } else {
@@ -128,6 +126,10 @@ class OffsetCalculatorDialog(
             InputHistoryManager.Keys.OFFSET_CALCULATOR_OFFSET
         )
 
+        // 恢复十六进制模式勾选状态
+        val savedHexMode = InputHistoryManager.get(InputHistoryManager.Keys.OFFSET_CALCULATOR_HEX_MODE)
+        binding.cbHexMode.isChecked = savedHexMode == "true"
+
         val spannable = SpannableStringBuilder()
         spannable.appendColored("-h; ", MemoryDisplayFormat.HEX_BIG_ENDIAN.textColor)
         spannable.appendColored("-r; ", MemoryDisplayFormat.HEX_LITTLE_ENDIAN.textColor)
@@ -144,6 +146,11 @@ class OffsetCalculatorDialog(
         // 设置输入框焦点监听
         setupInputFocus(binding)
 
+        // 在 setupInputFocus 之后调用，确保包装已有的 OnFocusChangeListener
+        if (useBuiltinKeyboard) {
+            suppressSystemKeyboard(binding.inputBaseAddress, binding.inputExpression)
+        }
+
         // 设置键盘监听器
         setupBuiltinKeyboard(binding)
 
@@ -151,7 +158,8 @@ class OffsetCalculatorDialog(
         setupTextWatchers(binding)
 
         // 监听十六进制模式切换，触发重新计算
-        binding.cbHexMode.setOnCheckedChangeListener { _, _ ->
+        binding.cbHexMode.setOnCheckedChangeListener { _, isChecked ->
+            InputHistoryManager.save(InputHistoryManager.Keys.OFFSET_CALCULATOR_HEX_MODE, isChecked.toString())
             calculateJob?.cancel()
             calculateJob = coroutineScope.launch(Dispatchers.Default) {
                 performCalculation(binding)

@@ -88,7 +88,7 @@ class BatchModifyValueDialog private constructor(
         val useBuiltinKeyboard = mmkv.keyboardType == 0
         if (useBuiltinKeyboard) {
             // 使用内置键盘时，禁用系统输入法弹出
-            binding.inputValue.showSoftInputOnFocus = false
+            suppressSystemKeyboard(binding.inputValue)
             binding.builtinKeyboard.visibility = View.VISIBLE
             binding.divider.visibility = View.VISIBLE
         } else {

@@ -45,10 +45,6 @@ class FilterDialog(
         // 根据配置决定是否禁用系统输入法
         val useBuiltinKeyboard = mmkv.keyboardType == 0
         if (useBuiltinKeyboard) {
-            // 使用内置键盘时，禁用系统输入法弹出
-            binding.inputMaxDisplayCount.showSoftInputOnFocus = false
-            binding.inputAddressStart.showSoftInputOnFocus = false
-            binding.inputAddressEnd.showSoftInputOnFocus = false
             binding.builtinKeyboard.visibility = View.VISIBLE
             binding.divider?.visibility = View.VISIBLE
         } else {
@@ -79,6 +75,15 @@ class FilterDialog(
 
         // 设置输入框焦点监听
         setupInputFocus(binding)
+
+        // 在 setupInputFocus 之后调用，确保包装已有的 OnFocusChangeListener
+        if (useBuiltinKeyboard) {
+            suppressSystemKeyboard(
+                binding.inputMaxDisplayCount,
+                binding.inputAddressStart,
+                binding.inputAddressEnd
+            )
+        }
 
         // 控制地址范围过滤显示/隐藏
         binding.cbEnableAddressFilter.setOnCheckedChangeListener { _, isChecked ->

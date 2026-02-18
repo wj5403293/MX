@@ -61,7 +61,7 @@ class ModuleListDialog(
         // 根据配置决定是否禁用系统输入法
         val useBuiltinKeyboard = mmkv.keyboardType == 0
         if (useBuiltinKeyboard) {
-            binding.inputAddress.showSoftInputOnFocus = false
+            suppressSystemKeyboard(binding.inputAddress)
             binding.builtinKeyboard.visibility = View.VISIBLE
             binding.divider.visibility = View.VISIBLE
         } else {
