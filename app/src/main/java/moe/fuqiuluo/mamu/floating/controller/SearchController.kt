@@ -607,8 +607,8 @@ class SearchController(
             // 设置native层过滤
             withContext(Dispatchers.IO) {
                 if (state.isFilterEnabled()) {
-                    val addressStart = state.addressRangeStart.toLongOrNull(16) ?: 0L
-                    val addressEnd = state.addressRangeEnd.toLongOrNull(16) ?: Long.MAX_VALUE
+                    val addressStart = state.addressRangeStart.toULongOrNull(16)?.toLong() ?: 0L
+                    val addressEnd = state.addressRangeEnd.toULongOrNull(16)?.toLong() ?: Long.MAX_VALUE
                     val typeIds = state.selectedDataTypes.map { it.nativeId }.toIntArray()
 
                     SearchEngine.setFilter(

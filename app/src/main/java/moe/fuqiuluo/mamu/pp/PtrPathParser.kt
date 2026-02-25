@@ -155,11 +155,11 @@ object PtrPathParser {
         return try {
             when {
                 str.startsWith("0x") || str.startsWith("0X") -> {
-                    str.substring(2).toLong(16)
+                    str.substring(2).toULong(16).toLong()
                 }
                 // 检测是否包含十六进制字符（a-f, A-F），如果有则按十六进制解析
                 str.any { it in 'a'..'f' || it in 'A'..'F' } -> {
-                    str.toLong(16)
+                    str.toULong(16).toLong()
                 }
                 else -> str.toLong(10)
             }

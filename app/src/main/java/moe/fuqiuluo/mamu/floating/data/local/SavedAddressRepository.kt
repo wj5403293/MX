@@ -209,7 +209,7 @@ object SavedAddressRepository {
                     try {
                         val addressStr = row["address"] ?: return@forEach
                         val address = if (addressStr.startsWith("0x", ignoreCase = true)) {
-                            addressStr.substring(2).toLongOrNull(16)
+                            addressStr.substring(2).toULongOrNull(16)?.toLong()
                         } else {
                             addressStr.toLongOrNull()
                         } ?: return@forEach

@@ -225,9 +225,9 @@ class ImportAddressDialog(
 
         // 解析地址（支持带0x前缀和不带前缀）
         val address = if (addressStr.startsWith("0x", ignoreCase = true)) {
-            addressStr.substring(2).toLongOrNull(16)
+            addressStr.substring(2).toULongOrNull(16)?.toLong()
         } else {
-            addressStr.toLongOrNull(16)
+            addressStr.toULongOrNull(16)?.toLong()
         } ?: return null
 
         // 解析内存范围（如果有）

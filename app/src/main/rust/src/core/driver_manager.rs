@@ -116,6 +116,8 @@ impl DriverManager {
         buf: &mut [u8],
         page_status: Option<&mut PageStatusBitmap>,
     ) -> anyhow::Result<()> {
+        // Strip ARM MTE tags (bits 56-63) — they don't participate in page table mapping
+        let addr = addr & 0x0000_FFFF_FFFF_FFFF;
         match self.access_mode {
             MemoryAccessMode::None => {
                 // 物理内存读取（绕过 access_mode）
@@ -183,6 +185,8 @@ impl DriverManager {
         addr: u64,
         buf: &[u8],
     ) -> anyhow::Result<()> {
+        // Strip ARM MTE tags (bits 56-63) — they don't participate in page table mapping
+        let addr = addr & 0x0000_FFFF_FFFF_FFFF;
         match self.access_mode {
             MemoryAccessMode::None => {
                 // 物理内存写入（绕过 access_mode）

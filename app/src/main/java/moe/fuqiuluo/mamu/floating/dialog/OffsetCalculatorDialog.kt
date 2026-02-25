@@ -306,7 +306,7 @@ class OffsetCalculatorDialog(
             val result = withContext(Dispatchers.IO) {
                 // 解析基址
                 val baseAddress = try {
-                    baseAddressStr.toLong(16)
+                    baseAddressStr.toULong(16).toLong()
                 } catch (e: Exception) {
                     e.printStackTrace()
                     throw ParseException("基址格式错误: $baseAddressStr")
@@ -670,7 +670,7 @@ class OffsetCalculatorDialog(
 
         val baseAddressStr = binding.inputBaseAddress.text.toString().trim()
         val baseAddress = try {
-            baseAddressStr.toLong(16)
+            baseAddressStr.toULong(16).toLong()
         } catch (e: Exception) {
             0L
         }
@@ -783,7 +783,7 @@ class OffsetCalculatorDialog(
         // 添加到历史记录
         val baseAddressStr = binding.inputBaseAddress.text.toString().trim()
         val expressionStr = binding.inputExpression.text.toString().trim()
-        val baseAddress = try { baseAddressStr.toLong(16) } catch (e: Exception) { 0L }
+        val baseAddress = try { baseAddressStr.toULong(16).toLong() } catch (e: Exception) { 0L }
         addToHistory(baseAddress, expressionStr, result.finalAddress, binding.cbHexMode.isChecked)
 
         // 使用 JumpToMemoryPreview 事件，会先切换到内存预览 Tab 再跳转

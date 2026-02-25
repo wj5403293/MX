@@ -177,7 +177,7 @@ class ModuleListDialog(
 
     private fun showModuleAtAddress(input: String) {
         try {
-            val address = input.toLong(16)
+            val address = input.toULong(16).toLong()
             val targetModule = modules.find { it.start <= address && address < it.end }
             if (targetModule != null) {
                 // 显示全部模块列表，高亮并聚焦到目标模块
@@ -202,7 +202,7 @@ class ModuleListDialog(
         try {
             val address = input.let {
                 if (it.startsWith("0x", ignoreCase = true)) it.substring(2) else it
-            }.toLong(16)
+            }.toULong(16).toLong() and 0x0000FFFFFFFFFFFFL // strip MTE tag
             onGoto(address)
             dialog.dismiss()
         } catch (e: Exception) {

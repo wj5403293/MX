@@ -850,7 +850,7 @@ class InfiniteMemoryAdapter(
                                 return result
                             }
 
-                            val value = byteArrayToLittleEndianLong(bytes)
+                            val value = byteArrayToLittleEndianLong(bytes) and 0x0000FFFFFFFFFFFFL // strip MTE tag
                             if (value > 0) {
                                 val range = findMemoryRange(value)
                                 if (range != null) {
